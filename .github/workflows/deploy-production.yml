@@ -1,0 +1,96 @@
+name: Deploy Production (Kaizen)
+
+# Kaizen deployment of the `infra/production` branch. Secrets come from Doppler
+# (project open-inspect, config prd) via deploy/doppler/deploy.sh; the only
+# GitHub secret is DOPPLER_TOKEN. Upstream terraform.yml only deploys `main`
+# and reads ~20 individual GitHub secrets, so it is not used for this branch.
+
+on:
+  push:
+    branches: [infra/production]
+    paths:
+      - "deploy/**"
+      - "terraform/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-production.yml"
+      - "!**/*.md"
+  pull_request:
+    branches: [infra/production]
+    paths:
+      - "deploy/**"
+      - "terraform/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-production.yml"
+      - "!**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never interrupt a terraform apply
+
+env:
+  TF_VERSION: "1.14.8"
+  DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+jobs:
+  deploy:
+    name: ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Fork PRs cannot read DOPPLER_TOKEN; skip rather than fail.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.13.0"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Install Modal and Python dependencies
+        run: uv sync --frozen
+        working-directory: packages/modal-infra
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v4
+
+      - name: Check Doppler secrets
+        run: deploy/doppler/deploy.sh check
+
+      - name: Terraform Init
+        run: deploy/doppler/deploy.sh init
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: deploy/doppler/deploy.sh plan 2 -no-color -lock=false
+
+      - name: Terraform Apply
+        if: github.event_name != 'pull_request'
+        run: deploy/doppler/deploy.sh apply 2 -no-color -auto-approve
+
+      - name: Terraform Output
+        if: github.event_name != 'pull_request'
+        run: deploy/doppler/deploy.sh output -no-color
