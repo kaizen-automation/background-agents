@@ -52,13 +52,15 @@ jobs:
       - name: Check if DOPPLER_TOKEN is configured
         id: check
         run: |
-          # Fork PRs cannot read secrets, and a fresh fork has no DOPPLER_TOKEN yet;
-          # skip plan/apply with a notice instead of failing inside deploy.sh.
           if [ -n "$DOPPLER_TOKEN" ]; then
             echo "has-secrets=true" >> $GITHUB_OUTPUT
-          else
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            # Fork PRs cannot read secrets; skip the plan with a notice.
             echo "has-secrets=false" >> $GITHUB_OUTPUT
-            echo "::notice::Deploy plan/apply skipped - DOPPLER_TOKEN secret not configured. See deploy/README.md."
+            echo "::notice::Deploy plan skipped - DOPPLER_TOKEN secret not available to this pull request."
+          else
+            echo "::error::DOPPLER_TOKEN repository secret is not configured, so main was NOT deployed. Add a read-only Doppler service token for kaizen-code/prd under Settings > Secrets and variables > Actions (see deploy/README.md)."
+            exit 1
           fi
 
   deploy:
