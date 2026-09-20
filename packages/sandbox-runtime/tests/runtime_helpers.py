@@ -2,6 +2,7 @@ import asyncio
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from sandbox_runtime.agent_bridge_process import AgentBridgeProcess
 from sandbox_runtime.boot_events import BootEventLog
@@ -57,6 +58,26 @@ def make_opencode_server(
         get_logger("supervisor"),
         lambda **_kwargs: None,
     )
+
+
+async def start_opencode_capturing_env(server: OpenCodeServer, workdir: Path) -> dict[str, str]:
+    """Run ``server.start`` without spawning; return the env ``opencode serve`` was given."""
+    with (
+        patch.object(server, "_setup_managed_oauth"),
+        patch.object(server, "_prepare_opencode_filesystem", return_value=set()),
+        patch.object(server, "_wait_for_health", new_callable=AsyncMock),
+        patch(
+            "sandbox_runtime.opencode_server.asyncio.create_subprocess_exec",
+            new_callable=AsyncMock,
+            return_value=MagicMock(stdout=None),
+        ) as spawn,
+        patch(
+            "sandbox_runtime.opencode_server.asyncio.create_task",
+            side_effect=lambda coro: coro.close(),
+        ),
+    ):
+        await server.start((), workdir)
+    return spawn.call_args.kwargs["env"]
 
 
 def make_browser_desktop(password: str | None = None) -> BrowserDesktop:

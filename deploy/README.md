@@ -66,7 +66,25 @@ The Claude harness runs Claude Code, which speaks to Bedrock natively when
 `packages/sandbox-runtime/.../harness/claude_env.py` (upstream only accepts `ANTHROPIC_API_KEY`);
 the model ids in the UI (`anthropic/claude-*`) are passed to Claude Code, which maps them to Bedrock
 inference profiles itself. Bedrock only knows dated snapshot ids for Haiku/Sonnet/Opus 4.5, so in
-Bedrock mode the harness pins those three (`BEDROCK_MODEL_SNAPSHOTS` in `harness/claude.py`).
+Bedrock mode the harness pins those three (`BEDROCK_MODEL_SNAPSHOTS`, now in `harness/bedrock.py`).
+
+OpenCode sessions use Bedrock in this mode too: the sandbox's generated opencode.json
+(`opencode_model_config.py`) points `model` at OpenCode's built-in `amazon-bedrock` provider
+(`@ai-sdk/amazon-bedrock`, bundled in the pinned OpenCode — no runtime npm fetch) with
+`provider.amazon-bedrock.options.region = $AWS_REGION`, and per-prompt model switches are translated
+the same way. The control plane still sees the catalog id; only the id handed to OpenCode changes.
+OpenCode prefixes the regional inference profile itself (`us.` for `us-*` regions):
+
+| Catalog model (`anthropic/…`) | OpenCode id (`amazon-bedrock/…`)            | Bedrock request                                |
+| ----------------------------- | ------------------------------------------- | ---------------------------------------------- |
+| `claude-sonnet-4-6`           | `anthropic.claude-sonnet-4-6`               | `us.anthropic.claude-sonnet-4-6`               |
+| `claude-opus-4-7`             | `anthropic.claude-opus-4-7`                 | `us.anthropic.claude-opus-4-7`                 |
+| `claude-sonnet-5`             | `anthropic.claude-sonnet-5`                 | `us.anthropic.claude-sonnet-5`                 |
+| `claude-opus-4-6`             | `anthropic.claude-opus-4-6-v1`              | `us.anthropic.claude-opus-4-6-v1`              |
+| `claude-haiku-4-5`            | `anthropic.claude-haiku-4-5-20251001-v1:0`  | `us.anthropic.claude-haiku-4-5-20251001-v1:0`  |
+| `claude-sonnet-4-5`           | `anthropic.claude-sonnet-4-5-20250929-v1:0` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| `claude-opus-4-5`             | `anthropic.claude-opus-4-5-20251101-v1:0`   | `us.anthropic.claude-opus-4-5-20251101-v1:0`   |
+| any other `claude-*`          | `anthropic.<model>`                         | `us.anthropic.<model>`                         |
 
 Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Claude Code):
 
