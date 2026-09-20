@@ -63,8 +63,12 @@ locals {
   # old credential away on the next apply; Modal rejects a secret with no keys at
   # all. An empty value means sandboxes take that provider's credential from the
   # per-repository secret store, which overrides this secret either way.
+  bedrock_enabled = trimspace(var.aws_bearer_token_bedrock) != ""
   modal_llm_secret_values = {
-    ANTHROPIC_API_KEY = trimspace(var.anthropic_api_key)
+    ANTHROPIC_API_KEY        = trimspace(var.anthropic_api_key)
+    CLAUDE_CODE_USE_BEDROCK  = local.bedrock_enabled ? "1" : ""
+    AWS_BEARER_TOKEN_BEDROCK = trimspace(var.aws_bearer_token_bedrock)
+    AWS_REGION               = local.bedrock_enabled ? trimspace(var.aws_region) : ""
   }
 
   # OpenComputer reads its sandbox credentials from the control plane rather than

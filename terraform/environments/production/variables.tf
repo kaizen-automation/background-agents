@@ -343,6 +343,26 @@ variable "linear_bot_default_model" {
 # API Keys
 # =============================================================================
 
+variable "aws_bearer_token_bedrock" {
+  description = "Amazon Bedrock API key (a long-term key generated under IAM → API keys for Bedrock). When set, Modal session sandboxes run the Claude harness through Bedrock (CLAUDE_CODE_USE_BEDROCK=1) instead of the Anthropic API; aws_region must then name the Bedrock region. Optional: leave blank to use anthropic_api_key or the scoped secret store."
+  type        = string
+  sensitive   = true
+  default     = ""
+  nullable    = false
+}
+
+variable "aws_region" {
+  description = "AWS region Claude Code sends Bedrock requests to (for example us-west-2). Required when aws_bearer_token_bedrock is set; ignored otherwise."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = trimspace(var.aws_bearer_token_bedrock) == "" || trimspace(var.aws_region) != ""
+    error_message = "aws_region must be set when aws_bearer_token_bedrock is configured: Claude Code cannot pick a Bedrock endpoint without it."
+  }
+}
+
 variable "anthropic_api_key" {
   description = "Anthropic API key for the Slack and Linear bot classifiers, also injected into Modal session sandboxes and OpenComputer sandboxes. Daytona, E2B and Vercel read model keys only from the scoped secret store, as do Modal image builds. Optional: leave blank to supply model credentials as scoped secrets, which override this value on every provider. Required only when a classifier bot is enabled and classification_model is an Anthropic model."
   type        = string

@@ -19,7 +19,7 @@ Terraform under `terraform/environments/production`.
                                            ┌──────────────────────┐ selected repos)
                                            │ Modal app open-inspect│──────▶ GitHub
                                            │  sandbox: Claude Agent│
-                                           │  SDK + repo checkout  │──────▶ Anthropic API
+                                           │  SDK + repo checkout  │──────▶ Amazon Bedrock (us-west-2)
                                            └──────────────────────┘
 Doppler open-inspect/prd ──(deploy time only)──▶ TF_VAR_* ──▶ Worker secrets · Modal secrets
 ```
@@ -31,31 +31,64 @@ Doppler project `open-inspect`, config `prd`, is the only place secrets live. Th
 `TF_VAR_*` (or backend) environment variable that upstream Terraform already consumes. No tfvars
 file, fallback cache, or command-line argument ever carries a secret value.
 
-| Doppler secret                                                                     | Consumer                                    | Runtime variable / use                            |
-| ---------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------- |
-| `CLOUDFLARE_ACCOUNT_ID`                                                            | Terraform provider, wrangler                | account for all Cloudflare resources              |
-| `CLOUDFLARE_API_TOKEN`                                                             | Terraform provider, wrangler                | scoped token (see below)                          |
-| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone `kaizenautomation.dev`                       |
-| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | `kaizen-agents` → control-plane `*.workers.dev`   |
-| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | `agents.kaizenautomation.dev` (web Worker)        |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state` |
-| `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                        |
-| `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                               |
-| `ANTHROPIC_API_KEY`                                                                | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)      |
-| `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                   |
-| `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                          |
-| `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                      |
-| `GITHUB_CLIENT_ID`                                                                 | Worker var                                  | GitHub sign-in                                    |
-| `GITHUB_CLIENT_SECRET`                                                             | Worker secret                               | `GITHUB_CLIENT_SECRET`                            |
-| `ALLOWED_GITHUB_ORGS`                                                              | Worker var                                  | admission: active members of these orgs           |
-| `NEXTAUTH_SECRET`                                                                  | Worker secret                               | `BROWSER_AUTH_SECRET` (session cookies)           |
-| `TOKEN_ENCRYPTION_KEY`                                                             | Worker secret                               | encrypts per-user GitHub tokens                   |
-| `REPO_SECRETS_ENCRYPTION_KEY`                                                      | Worker secret                               | encrypts Settings → Secrets in D1                 |
-| `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`                                                 | Worker secret                               | encrypts provider accounts — never change         |
-| `MODAL_API_SECRET`                                                                 | Worker secret + Modal secret `internal-api` | control plane ↔ Modal auth                        |
+| Doppler secret                                                                     | Consumer                                    | Runtime variable / use                                           |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID`                                                            | Terraform provider, wrangler                | account for all Cloudflare resources                             |
+| `CLOUDFLARE_API_TOKEN`                                                             | Terraform provider, wrangler                | scoped token (see below)                                         |
+| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone `kaizenautomation.dev`                                      |
+| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | `kaizen-agents` → control-plane `*.workers.dev`                  |
+| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | `agents.kaizenautomation.dev` (web Worker)                       |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state`                |
+| `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                                       |
+| `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                                              |
+| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1` |
+| `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                   |
+| `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                     |
+| `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                                  |
+| `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                                         |
+| `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                                     |
+| `GITHUB_CLIENT_ID`                                                                 | Worker var                                  | GitHub sign-in                                                   |
+| `GITHUB_CLIENT_SECRET`                                                             | Worker secret                               | `GITHUB_CLIENT_SECRET`                                           |
+| `ALLOWED_GITHUB_ORGS`                                                              | Worker var                                  | admission: active members of these orgs                          |
+| `NEXTAUTH_SECRET`                                                                  | Worker secret                               | `BROWSER_AUTH_SECRET` (session cookies)                          |
+| `TOKEN_ENCRYPTION_KEY`                                                             | Worker secret                               | encrypts per-user GitHub tokens                                  |
+| `REPO_SECRETS_ENCRYPTION_KEY`                                                      | Worker secret                               | encrypts Settings → Secrets in D1                                |
+| `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`                                                 | Worker secret                               | encrypts provider accounts — never change                        |
+| `MODAL_API_SECRET`                                                                 | Worker secret + Modal secret `internal-api` | control plane ↔ Modal auth                                       |
 
 Generated secrets are 32 random bytes, base64 (`openssl rand -base64 32`), created straight into
 Doppler with `doppler secrets set NAME="$(openssl rand -base64 32)" --silent`.
+
+### Model provider: Amazon Bedrock
+
+The Claude harness runs Claude Code, which speaks to Bedrock natively when
+`CLAUDE_CODE_USE_BEDROCK=1`. This fork adds a Bedrock credential mode to
+`packages/sandbox-runtime/.../harness/claude_env.py` (upstream only accepts `ANTHROPIC_API_KEY`);
+the model ids in the UI (`anthropic/claude-*`) are passed to Claude Code, which maps them to Bedrock
+inference profiles itself. Bedrock only knows dated snapshot ids for Haiku/Sonnet/Opus 4.5, so in
+Bedrock mode the harness pins those three (`BEDROCK_MODEL_SNAPSHOTS` in `harness/claude.py`).
+
+Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Claude Code):
+
+| Catalog model                                                       | Bedrock                                                                                                                                                                                           |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sonnet 4.6 · Opus 4.6 · Opus 4.7 · Sonnet 5 · Haiku/Sonnet/Opus 4.5 | works                                                                                                                                                                                             |
+| Opus 4.8 · Opus 5                                                   | 403 until the account subscribes: add `aws-marketplace:ViewSubscriptions` + `aws-marketplace:Subscribe` to the key's IAM user once, or invoke each model once from the Bedrock console playground |
+| Fable 5 · Fable 5.1                                                 | rejected — "data retention mode `default` is not available"; needs the model's data-retention opt-in in the Bedrock console, otherwise hide them under Settings → Models                          |
+
+- Exactly one of `AWS_BEARER_TOKEN_BEDROCK` / `ANTHROPIC_API_KEY` may be set in Doppler; `check`
+  enforces it. With Bedrock, `AWS_REGION` is required (currently `us-west-2`).
+- The key: AWS Console → IAM → _API keys for Bedrock_ → Generate → **Long-term**, attached to a
+  dedicated IAM user whose policy allows only `bedrock:InvokeModel`,
+  `bedrock:InvokeModelWithResponseStream`, `bedrock:ListInferenceProfiles`,
+  `bedrock:GetInferenceProfile` on `inference-profile/*` and `foundation-model/*`. Anthropic model
+  access must be enabled once per account (Bedrock → Model catalog → use-case form).
+- The key reaches only Modal sandboxes (Terraform test `tests/bedrock_api_key.tftest.hcl` pins that
+  the control plane never binds it). In the sandbox the harness passes it to Claude Code and strips
+  every Anthropic-API / OAuth credential, and vice versa (`tests/test_claude_env.py`).
+- Switching back to the Anthropic API: clear `AWS_BEARER_TOKEN_BEDROCK`, set `ANTHROPIC_API_KEY`,
+  `apply`. The Modal secret keeps every name with an empty value so the old credential is reconciled
+  away.
 
 ### Cloudflare API token (least privilege)
 
@@ -72,9 +105,10 @@ admission). Installed with **Only select repositories**. Webhook inactive (GitHu
 
 ### What reaches a sandbox
 
-Only `ANTHROPIC_API_KEY` (from a dedicated Anthropic workspace with a spend cap), a per-session
-sandbox token, and a short-lived GitHub installation token. Production application credentials are
-never present unless someone deliberately adds them under Settings → Secrets.
+Only the model credential (`AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION`, from a Bedrock-only IAM user
+with an AWS Budgets alert — or `ANTHROPIC_API_KEY` from a capped workspace), a per-session sandbox
+token, and a short-lived GitHub installation token. Production application credentials are never
+present unless someone deliberately adds them under Settings → Secrets.
 
 ## Deploying
 
@@ -103,15 +137,15 @@ deploy/doppler/deploy.sh run npm run rbac:bootstrap-owner -- --database <d1_data
 
 ## Limits
 
-| Limit                              | Where                                                 | Value                   |
-| ---------------------------------- | ----------------------------------------------------- | ----------------------- |
-| Concurrent child sessions per task | Settings → Sandbox → `maxConcurrentChildSessions`     | 4                       |
-| Total child sessions per task      | Settings → Sandbox → `maxTotalChildSessions`          | 8                       |
-| Child nesting depth                | hard-coded upstream (`MAX_SPAWN_DEPTH`)               | 2                       |
-| Per-session spend                  | Settings → Sandbox → `maxSessionCostUsd`              | 15                      |
-| Sandbox size / lifetime            | Settings → Sandbox                                    | 2 vCPU · 4096 MiB · 2 h |
-| Total Anthropic spend              | Anthropic Console → workspace `open-inspect` → limits | monthly cap             |
-| Total sandboxes                    | Modal workspace resource limits                       | see Modal settings      |
+| Limit                              | Where                                              | Value                   |
+| ---------------------------------- | -------------------------------------------------- | ----------------------- |
+| Concurrent child sessions per task | Settings → Sandbox → `maxConcurrentChildSessions`  | 4                       |
+| Total child sessions per task      | Settings → Sandbox → `maxTotalChildSessions`       | 8                       |
+| Child nesting depth                | hard-coded upstream (`MAX_SPAWN_DEPTH`)            | 2                       |
+| Per-session spend                  | Settings → Sandbox → `maxSessionCostUsd`           | 15                      |
+| Sandbox size / lifetime            | Settings → Sandbox                                 | 2 vCPU · 4096 MiB · 2 h |
+| Total model spend                  | AWS Budgets (Bedrock) / Anthropic workspace limits | monthly cap + alert     |
+| Total sandboxes                    | Modal workspace resource limits                    | see Modal settings      |
 
 Claude Code sub-agents (`Agent` tool) run inside the parent sandbox and finish within the turn
 (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` is forced by the harness); they are bounded by the
@@ -127,31 +161,34 @@ minute (installation repositories are listed live). Remove it the same way.
 org (or remove them); revoking an active browser session is done from Settings → Users (suspend). To
 allow a user outside the org, add their login to Doppler `ALLOWED_USERS` and re-run `apply`.
 
-**Rotate the Anthropic key** — create a new key in the `open-inspect` workspace,
-`doppler secrets set ANTHROPIC_API_KEY`, run `deploy/doppler/deploy.sh apply`, then delete the old
-key in the Console. New sandboxes pick it up immediately; running ones keep the old key until they
-exit. Rotate `GITHUB_APP_PRIVATE_KEY`, `MODAL_API_SECRET`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET`
-the same way (`NEXTAUTH_SECRET` signs everyone out). Never rotate
-`PROVIDER_ACCOUNTS_ENCRYPTION_KEY`, `TOKEN_ENCRYPTION_KEY` or `REPO_SECRETS_ENCRYPTION_KEY` without
-re-entering the data they protect.
+**Rotate the model key** — Bedrock: IAM → API keys for Bedrock → Generate a new long-term key for
+the same user, `doppler secrets set AWS_BEARER_TOKEN_BEDROCK` (value from stdin), run
+`deploy/doppler/deploy.sh apply`, then delete the old key in IAM. Anthropic API: same flow with a
+new key from the `open-inspect` workspace and `doppler secrets set ANTHROPIC_API_KEY`. New sandboxes
+pick it up immediately; running ones keep the old key until they exit. Rotate
+`GITHUB_APP_PRIVATE_KEY`, `MODAL_API_SECRET`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET` the same way
+(`NEXTAUTH_SECRET` signs everyone out). Never rotate `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`,
+`TOKEN_ENCRYPTION_KEY` or `REPO_SECRETS_ENCRYPTION_KEY` without re-entering the data they protect.
 
-**Inspect usage / cost** — per-session cost is shown in the session header and Settings → Usage;
-Anthropic Console → Usage (workspace `open-inspect`) is authoritative for tokens; Modal dashboard →
-Usage for sandbox compute; Cloudflare → Workers & Pages → the two Workers for requests/DO time.
+**Inspect usage / cost** — per-session cost is shown in the session header and Settings → Usage; AWS
+Cost Explorer filtered to service _Amazon Bedrock_ (or Bedrock → Model invocation logging when
+enabled) is authoritative for tokens; Modal dashboard → Usage for sandbox compute; Cloudflare →
+Workers & Pages → the two Workers for requests/DO time.
 
 **Cap concurrency** — Settings → Sandbox (child-session counts and spend limit take effect for new
-sessions immediately); Anthropic workspace spend limit; Modal workspace limits.
+sessions immediately); AWS Budgets on Bedrock (alert + optional IAM deny action); Modal workspace
+limits.
 
 **Shut down** — `deploy/doppler/deploy.sh destroy` removes every Cloudflare resource (Workers, DOs,
 D1, KV, R2 media bucket, Queues, custom domain) and the Modal app/secrets. Then delete the R2 state
-bucket, the Cloudflare/Modal tokens, the Anthropic workspace key, and uninstall the GitHub App.
+bucket, the Cloudflare/Modal tokens, the Bedrock API key (IAM), and uninstall the GitHub App.
 Pausing instead: Modal → Apps → open-inspect → Stop, and suspend users in Settings → Users.
 
 ## Costs
 
 Fixed: Cloudflare Workers Paid $5/mo (required for Durable Objects, D1 and Queues) · R2 ≈ $0 · Modal
-$0 base plan · Doppler free/Developer tier · Anthropic $0 base → **≈ $5–30 / month**.
+$0 base plan · Doppler free/Developer tier · Bedrock $0 base (on-demand) → **≈ $5–30 / month**.
 
-Variable: Anthropic tokens (dominant; cap in the Console) · Modal sandbox CPU/memory-seconds (≈
-$0.05–0.15 per sandbox-hour at 2 vCPU / 4 GiB, plus image builds) · Cloudflare request / DO duration
-above the included quota.
+Variable: Bedrock Claude tokens (dominant; same list price as the Anthropic API, billed to AWS) ·
+Modal sandbox CPU/memory-seconds (≈ $0.05–0.15 per sandbox-hour at 2 vCPU / 4 GiB, plus image
+builds) · Cloudflare request / DO duration above the included quota.

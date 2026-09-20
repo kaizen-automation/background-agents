@@ -49,7 +49,6 @@ REQUIRED_SECRETS=(
   MODAL_TOKEN_ID
   MODAL_TOKEN_SECRET
   MODAL_WORKSPACE
-  ANTHROPIC_API_KEY
   GITHUB_APP_ID
   GITHUB_APP_PRIVATE_KEY
   GITHUB_APP_INSTALLATION_ID
@@ -63,6 +62,9 @@ REQUIRED_SECRETS=(
   ALLOWED_GITHUB_ORGS
 )
 OPTIONAL_SECRETS=(
+  ANTHROPIC_API_KEY
+  AWS_BEARER_TOKEN_BEDROCK
+  AWS_REGION
   MODAL_ENVIRONMENT
   MODAL_ENVIRONMENT_WEB_SUFFIX
   GOOGLE_CLIENT_ID
@@ -82,6 +84,8 @@ OPTIONAL_SECRETS=(
 )
 # Secrets consumed by this script / the Terraform backend rather than as TF_VAR_*.
 NON_TF_SECRETS=(R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY)
+# The Claude harness needs exactly one of these model credentials.
+MODEL_CREDENTIAL_SECRETS=(ANTHROPIC_API_KEY AWS_BEARER_TOKEN_BEDROCK)
 
 log() { printf '[deploy] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
@@ -116,6 +120,27 @@ check_secret_names() {
       'to_entries | map(select((.key as $k | $req | index($k)) and (.value.computed // "") == "")) | .[].key')"
   [[ -z "$empty" ]] || die "required Doppler secrets are empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}: $(tr '\n' ' ' <<<"$empty")"
   log "all ${#REQUIRED_SECRETS[@]} required secrets present and non-empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
+  check_model_credential
+}
+
+# Exactly one model credential, and Bedrock brings its region along.
+check_model_credential() {
+  local set_names
+  set_names="$(doppler secrets --json $(doppler_args) |
+    jq -r --argjson names "$(printf '%s\n' "${MODEL_CREDENTIAL_SECRETS[@]}" AWS_REGION | jq -R . | jq -s .)" \
+      'to_entries | map(select((.key as $k | $names | index($k)) and (.value.computed // "" | gsub("\\s"; "") != ""))) | .[].key')"
+  local has_anthropic=0 has_bedrock=0 has_region=0
+  grep -qx ANTHROPIC_API_KEY <<<"$set_names" && has_anthropic=1
+  grep -qx AWS_BEARER_TOKEN_BEDROCK <<<"$set_names" && has_bedrock=1
+  grep -qx AWS_REGION <<<"$set_names" && has_region=1
+  ((has_anthropic + has_bedrock == 1)) ||
+    die "set exactly one model credential in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}: ${MODEL_CREDENTIAL_SECRETS[*]}"
+  if ((has_bedrock)); then
+    ((has_region)) || die "AWS_BEARER_TOKEN_BEDROCK is set but AWS_REGION is empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
+    log "model provider: Amazon Bedrock (Claude Code CLAUDE_CODE_USE_BEDROCK=1)"
+  else
+    log "model provider: Anthropic API"
+  fi
 }
 
 # Runs inside `doppler run`: the Doppler secrets are in the environment under

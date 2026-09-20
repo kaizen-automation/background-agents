@@ -54,6 +54,7 @@ from .base import (
 )
 from .claude_env import (
     CLAUDE_POLICY_SETTINGS,
+    ClaudeAuthMode,
     ClaudeCredential,
     bundled_claude_binary,
     harness_env,
@@ -73,6 +74,13 @@ THINKING_BUDGET_MODELS: Final = frozenset(
     {"claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5"}
 )
 THINKING_BUDGETS: Final = {"high": 16_000, "max": 31_999}
+# Bedrock only resolves dated snapshot ids for these; Claude Code maps the
+# snapshot name to the regional inference profile itself.
+BEDROCK_MODEL_SNAPSHOTS: Final = {
+    "claude-haiku-4-5": "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
+    "claude-opus-4-5": "claude-opus-4-5-20251101",
+}
 EFFORT_LEVELS: Final = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 # Everything the child may call; `dontAsk` approves what is listed and denies the rest.
@@ -126,7 +134,7 @@ _STDOUT_MESSAGE_HEADROOM_BYTES: Final = 16 * 1024 * 1024
 MAX_STDOUT_MESSAGE_BYTES: Final = _ATTACHMENT_BASE64_BYTES + _STDOUT_MESSAGE_HEADROOM_BYTES
 AUTHENTICATION_FAILED_MESSAGE: Final = (
     "Anthropic rejected this session's credential. Reconnect the Claude account in "
-    "Settings (or check ANTHROPIC_API_KEY) and start a new session."
+    "Settings (or check ANTHROPIC_API_KEY / AWS_BEARER_TOKEN_BEDROCK) and start a new session."
 )
 
 
@@ -212,6 +220,13 @@ def bare_model_id(model: str | None, default: str) -> str:
             raise ValueError(f"The Claude harness cannot run provider {provider!r}")
         return bare
     return value
+
+
+def platform_model_id(model: str, mode: ClaudeAuthMode) -> str:
+    """The id Claude Code is given for ``model`` on the credential's platform."""
+    if mode is ClaudeAuthMode.BEDROCK:
+        return BEDROCK_MODEL_SNAPSHOTS.get(model, model)
+    return model
 
 
 def reasoning_options(model: str, reasoning_effort: str | None) -> dict[str, Any]:
@@ -370,7 +385,8 @@ class ClaudeHarness:
         if credential is None:
             raise HarnessStartError(
                 "No Anthropic credential is available to this session: set ANTHROPIC_API_KEY "
-                "or select a connected Claude account, then start a new session."
+                "(or CLAUDE_CODE_USE_BEDROCK=1 with AWS_BEARER_TOKEN_BEDROCK) or select a "
+                "connected Claude account, then start a new session."
             )
         return credential
 
@@ -416,7 +432,7 @@ class ClaudeHarness:
             "cwd": str(self.config.workdir),
             "cli_path": str(self.wrapper_path),
             "env": harness_env(self.config.config_dir, self.credential),
-            "model": model,
+            "model": platform_model_id(model, self.credential.mode),
             "mcp_servers": mcp_servers,
             "allowed_tools": allowed_tools,
             "disallowed_tools": [*DISALLOWED_TOOLS],
