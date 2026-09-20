@@ -117,8 +117,11 @@ by default; the existing `openai/*` entries keep going to api.openai.com.
   id, so before enabling `azure/gpt-6-astra` create a deployment named exactly `gpt-6-astra` (model
   `gpt-6-astra`) in the Foundry resource. Any further `azure/<model>` catalog entry needs a
   same-named deployment as well.
-- Then enable the model: Settings → Models → "Azure OpenAI" → GPT-6 Astra. Sessions pick it as
-  `azure/gpt-6-astra` on the OpenCode harness; the Claude harness cannot run it.
+- Then expose the model: append the canonical id `azure/gpt-6-astra` to `model_allowlist` in
+  `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`) and `apply`, and
+  enable it under Settings → Models → "Azure OpenAI" → GPT-6 Astra. Until both are done Astra stays
+  hidden. Sessions pick it as `azure/gpt-6-astra` on the OpenCode harness; the Claude harness cannot
+  run it.
 - Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
   empty values), then disable the model again under Settings → Models.
 
