@@ -224,7 +224,9 @@ Modal CLI come from the repository's own dependencies (`npm install`, and `uv sy
 After the initial bootstrap, `.github/workflows/deploy-production.yml` automates later changes: pull
 requests into `main` run `deploy.sh plan`, and pushes to `main` run
 `deploy.sh apply 2 -auto-approve`. It needs a single GitHub Actions secret, `DOPPLER_TOKEN` (the
-same read-only service token used above); everything else is read from Doppler at run time.
+same read-only service token used above); everything else is read from Doppler at run time. A push
+to `main` without that secret fails the workflow (nothing is deployed); pull requests without it
+(e.g. from forks) skip the plan with a notice.
 
 After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 
