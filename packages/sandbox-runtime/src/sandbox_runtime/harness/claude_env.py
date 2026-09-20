@@ -31,17 +31,27 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 # Credential variables per auth mode. Exactly one mode is ever active: the
-# child sees either the key family or the OAuth token, never both, so the
-# family of the *other* mode is what the wrapper strips.
+# child sees the key family, the OAuth token, or the Bedrock family, never
+# more than one, so the families of the *other* modes are what the wrapper
+# strips.
 API_KEY_CREDENTIAL_VARS: Final[tuple[str, ...]] = (
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
 )
 OAUTH_CREDENTIAL_VARS: Final[tuple[str, ...]] = ("CLAUDE_CODE_OAUTH_TOKEN",)
+# Claude Code's Amazon Bedrock mode with a Bedrock API key. ``AWS_REGION`` is
+# deliberately not a credential: the agent's own tooling may need it.
+BEDROCK_CREDENTIAL_VARS: Final[tuple[str, ...]] = (
+    "CLAUDE_CODE_USE_BEDROCK",
+    "AWS_BEARER_TOKEN_BEDROCK",
+    "ANTHROPIC_BEDROCK_BASE_URL",
+)
 
 OAUTH_TOKEN_ENV_VAR: Final = "CLAUDE_CODE_OAUTH_TOKEN"
 API_KEY_ENV_VAR: Final = "ANTHROPIC_API_KEY"
+BEDROCK_ENABLED_ENV_VAR: Final = "CLAUDE_CODE_USE_BEDROCK"
+BEDROCK_TOKEN_ENV_VAR: Final = "AWS_BEARER_TOKEN_BEDROCK"
 OAUTH_MANAGED_ENV_VAR: Final = "ANTHROPIC_OAUTH_MANAGED"
 CONFIG_DIR_ENV_VAR: Final = "CLAUDE_CONFIG_DIR"
 
@@ -113,6 +123,14 @@ def _milliseconds_as_seconds(raw: str | None) -> float | None:
 class ClaudeAuthMode(StrEnum):
     API_KEY = "api_key"
     OAUTH_TOKEN = "oauth_token"
+    BEDROCK = "bedrock"
+
+
+CREDENTIAL_VARS_BY_MODE: Final[Mapping[ClaudeAuthMode, tuple[str, ...]]] = {
+    ClaudeAuthMode.API_KEY: API_KEY_CREDENTIAL_VARS,
+    ClaudeAuthMode.OAUTH_TOKEN: OAUTH_CREDENTIAL_VARS,
+    ClaudeAuthMode.BEDROCK: BEDROCK_CREDENTIAL_VARS,
+}
 
 
 @dataclass(frozen=True)
@@ -137,16 +155,36 @@ class ClaudeCredential:
     def oauth_token(cls, token: str) -> ClaudeCredential:
         return cls(ClaudeAuthMode.OAUTH_TOKEN, {OAUTH_TOKEN_ENV_VAR: token})
 
+    @classmethod
+    def bedrock(cls, environ: Mapping[str, str]) -> ClaudeCredential | None:
+        """Adopt the bridge's Bedrock API key when Claude Code's Bedrock mode is switched on."""
+        if not bedrock_enabled(environ) or not environ.get(BEDROCK_TOKEN_ENV_VAR):
+            return None
+        return cls(
+            ClaudeAuthMode.BEDROCK,
+            {name: environ[name] for name in BEDROCK_CREDENTIAL_VARS if environ.get(name)},
+        )
+
+
+def bedrock_enabled(environ: Mapping[str, str]) -> bool:
+    """Claude Code's own reading of ``CLAUDE_CODE_USE_BEDROCK``: ``1`` or ``true``."""
+    return environ.get(BEDROCK_ENABLED_ENV_VAR, "").strip().lower() in {"1", "true"}
+
 
 def denylist_for(mode: ClaudeAuthMode) -> tuple[str, ...]:
-    """The credential family the child must never see in ``mode``."""
-    return OAUTH_CREDENTIAL_VARS if mode is ClaudeAuthMode.API_KEY else API_KEY_CREDENTIAL_VARS
+    """The credential families the child must never see in ``mode``."""
+    return tuple(
+        name
+        for other, names in CREDENTIAL_VARS_BY_MODE.items()
+        if other is not mode
+        for name in names
+    )
 
 
 def clean_child_env(
     parent: Mapping[str, str], mode: ClaudeAuthMode, extra: Mapping[str, str]
 ) -> dict[str, str]:
-    """What the child ends up with: parent+extra minus the other mode's credentials.
+    """What the child ends up with: parent+extra minus the other modes' credentials.
 
     This is the reference the sentinel test compares the wrapper's real
     output against.
@@ -228,4 +266,5 @@ def harness_env(config_dir: Path, credential: ClaudeCredential) -> dict[str, str
 
 
 def resolve_api_key_credential(environ: Mapping[str, str] = os.environ) -> ClaudeCredential | None:
-    return ClaudeCredential.api_key(environ)
+    """The platform-delivered credential: Bedrock when switched on, otherwise the Anthropic key."""
+    return ClaudeCredential.bedrock(environ) or ClaudeCredential.api_key(environ)

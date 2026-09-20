@@ -8,6 +8,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { APP_NAME } from "@/lib/site-config";
 
 function parseBotUsernames(value: string): string[] {
   return Array.from(
@@ -85,9 +86,8 @@ export function GitHubAutofixSettingsFields({
         },
         {
           key: "openInspectReviewsEnabled" as const,
-          label: "Open Inspect reviews",
-          description:
-            "Allow reviews from the configured Open Inspect App, regardless of workflow.",
+          label: `${APP_NAME} reviews`,
+          description: `Allow reviews from the configured ${APP_NAME} App, regardless of workflow.`,
         },
       ].map((field) => (
         <label key={field.key} className={rowClass}>

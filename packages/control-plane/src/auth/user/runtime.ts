@@ -4,6 +4,7 @@ import {
   parseAdmissionBoolean,
   type AdmissionPolicyConfig,
 } from "./admission-policy";
+import { resolveAppName } from "@open-inspect/shared/app-name";
 import {
   SIGN_IN_PROVIDERS,
   SIGN_IN_PROVIDER_ISSUERS,
@@ -116,7 +117,7 @@ function normalizeUserAuthConfig(env: Env): NormalizedUserAuthConfig {
   return {
     publicWebOrigin: parsePublicWebOrigin(env.WEB_APP_URL),
     secret,
-    appName: env.APP_NAME?.trim() || "Open-Inspect",
+    appName: resolveAppName(env),
     admission: {
       allowedGitHubUsers: parseAdmissionAllowlist(env.ALLOWED_USERS),
       allowedEmails: parseAdmissionAllowlist(env.ALLOWED_EMAILS),

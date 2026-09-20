@@ -45,6 +45,7 @@ from sandbox_runtime.harness.claude import (
     ClaudeHarnessConfig,
     bare_model_id,
     mcp_server_options,
+    platform_model_id,
     reasoning_options,
 )
 from sandbox_runtime.harness.claude_env import ClaudeAuthMode
@@ -401,6 +402,18 @@ class TestOptions:
         assert bare_model_id(None, "d") == "d"
         with pytest.raises(ValueError, match="openai"):
             bare_model_id("openai/gpt-5", "d")
+
+    def test_bedrock_pins_snapshot_ids_for_older_models(self) -> None:
+        assert (
+            platform_model_id("claude-sonnet-4-5", ClaudeAuthMode.BEDROCK)
+            == "claude-sonnet-4-5-20250929"
+        )
+        assert platform_model_id("claude-opus-4-7", ClaudeAuthMode.BEDROCK) == "claude-opus-4-7"
+        assert platform_model_id("claude-sonnet-4-5", ClaudeAuthMode.API_KEY) == "claude-sonnet-4-5"
+        assert (
+            platform_model_id("claude-sonnet-4-5", ClaudeAuthMode.OAUTH_TOKEN)
+            == "claude-sonnet-4-5"
+        )
 
     def test_mcp_options_skip_disabled_and_empty(self) -> None:
         assert mcp_server_options(({"name": "x", "type": "local", "command": []},)) == {}

@@ -56,7 +56,7 @@ run "a_deployment_with_no_anthropic_key_plans" {
   # The key stays present with an empty value: --force then reconciles a
   # previously configured credential away instead of leaving it behind.
   assert {
-    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "" }
+    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "", CLAUDE_CODE_USE_BEDROCK = "", AWS_BEARER_TOKEN_BEDROCK = "", AWS_REGION = "" }
     error_message = "An unset Anthropic key must be injected as an empty value, not a credential."
   }
 }
@@ -69,7 +69,7 @@ run "a_configured_key_is_injected_into_modal" {
   }
 
   assert {
-    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "test-anthropic-key" }
+    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "test-anthropic-key", CLAUDE_CODE_USE_BEDROCK = "", AWS_BEARER_TOKEN_BEDROCK = "", AWS_REGION = "" }
     error_message = "A configured Anthropic key must be injected as a deployment-wide LLM key."
   }
 }
@@ -83,7 +83,7 @@ run "a_blank_key_is_not_treated_as_configured" {
   }
 
   assert {
-    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "" }
+    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "", CLAUDE_CODE_USE_BEDROCK = "", AWS_BEARER_TOKEN_BEDROCK = "", AWS_REGION = "" }
     error_message = "A whitespace-only Anthropic key must normalize to empty, not reach a sandbox."
   }
 }

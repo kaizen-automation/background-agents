@@ -9,6 +9,7 @@ import {
   type ScmGlobalConfig,
 } from "@open-inspect/shared/types/integrations";
 import type { EnrichedRepository } from "@open-inspect/shared/types/repository-catalog";
+import { APP_NAME_SLUG } from "@/lib/site-config";
 import { IntegrationSettingsSkeleton } from "./integrations/integration-settings-skeleton";
 import { SettingsCardSection } from "./settings-card-section";
 import {
@@ -285,7 +286,7 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
             setPullRequestLabel(event.target.value);
             setDirty(true);
           }}
-          placeholder="e.g., open-inspect"
+          placeholder={`e.g., ${APP_NAME_SLUG}`}
         />
       </div>
 

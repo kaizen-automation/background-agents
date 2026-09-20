@@ -48,7 +48,7 @@ module "control_plane_worker" {
 
   r2_buckets = {
     MEDIA_BUCKET = {
-      bucket_name = cloudflare_r2_bucket.media.name
+      bucket_name = local.r2_media_bucket_name
     }
   }
 

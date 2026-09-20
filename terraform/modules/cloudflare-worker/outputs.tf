@@ -38,6 +38,11 @@ output "plain_text_bindings" {
   value       = { for name, binding in var.plain_text_bindings : name => binding.value }
 }
 
+output "r2_bucket_bindings" {
+  description = "Configured R2 bindings as a binding name => bucket name map."
+  value       = { for name, binding in var.r2_buckets : name => binding.bucket_name }
+}
+
 output "secret_binding_names" {
   description = "Names of configured secret bindings; secret values are not exposed."
   value       = nonsensitive(keys(var.secrets))

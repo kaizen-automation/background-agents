@@ -6,6 +6,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionListItem } from "@/lib/session-list";
+import { APP_NAME } from "@/lib/site-config";
 import { GlobalCommandMenu } from "./global-command-menu";
 
 expect.extend(matchers);
@@ -74,7 +75,7 @@ describe("GlobalCommandMenu", () => {
     expect(
       screen.getByText("Ask a question or describe what you want to build")
     ).toBeInTheDocument();
-    expect(screen.getByText("Configure Open Inspect")).toBeInTheDocument();
+    expect(screen.getByText(`Configure ${APP_NAME}`)).toBeInTheDocument();
     expect(screen.getByText("Manage scheduled and event-triggered work")).toBeInTheDocument();
     expect(
       screen.getByText("View usage across sessions, repositories, and users")
@@ -98,7 +99,7 @@ describe("GlobalCommandMenu", () => {
 
     expect(screen.queryByText("Automations")).not.toBeInTheDocument();
     expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
-    expect(screen.getByText("Configure Open Inspect")).toBeInTheDocument();
+    expect(screen.getByText(`Configure ${APP_NAME}`)).toBeInTheDocument();
   });
 
   it("selects Analytics from the keyboard", async () => {

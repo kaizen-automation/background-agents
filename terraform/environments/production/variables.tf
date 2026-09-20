@@ -343,6 +343,26 @@ variable "linear_bot_default_model" {
 # API Keys
 # =============================================================================
 
+variable "aws_bearer_token_bedrock" {
+  description = "Amazon Bedrock API key (a long-term key generated under IAM → API keys for Bedrock). When set, Modal session sandboxes run the Claude harness through Bedrock (CLAUDE_CODE_USE_BEDROCK=1) instead of the Anthropic API; aws_region must then name the Bedrock region. Optional: leave blank to use anthropic_api_key or the scoped secret store."
+  type        = string
+  sensitive   = true
+  default     = ""
+  nullable    = false
+}
+
+variable "aws_region" {
+  description = "AWS region Claude Code sends Bedrock requests to (for example us-west-2). Required when aws_bearer_token_bedrock is set; ignored otherwise."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = trimspace(var.aws_bearer_token_bedrock) == "" || trimspace(var.aws_region) != ""
+    error_message = "aws_region must be set when aws_bearer_token_bedrock is configured: Claude Code cannot pick a Bedrock endpoint without it."
+  }
+}
+
 variable "anthropic_api_key" {
   description = "Anthropic API key for the Slack and Linear bot classifiers, also injected into Modal session sandboxes and OpenComputer sandboxes. Daytona, E2B and Vercel read model keys only from the scoped secret store, as do Modal image builds. Optional: leave blank to supply model credentials as scoped secrets, which override this value on every provider. Required only when a classifier bot is enabled and classification_model is an Anthropic model."
   type        = string
@@ -774,9 +794,20 @@ variable "r2_media_location" {
 }
 
 variable "r2_media_bucket_name" {
-  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets)."
+  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets). Required when r2_media_bucket_managed is false."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.r2_media_bucket_managed || trimspace(var.r2_media_bucket_name) != ""
+    error_message = "r2_media_bucket_name must name the pre-created bucket when r2_media_bucket_managed is false."
+  }
+}
+
+variable "r2_media_bucket_managed" {
+  description = "Whether Terraform creates and manages the R2 media bucket. Set false when the bucket is provisioned out-of-band and the Cloudflare API token must carry no R2 permission: Terraform then only attaches the MEDIA_BUCKET binding (Workers Scripts Edit) to the bucket named by r2_media_bucket_name."
+  type        = bool
+  default     = true
 }
 
 # =============================================================================
