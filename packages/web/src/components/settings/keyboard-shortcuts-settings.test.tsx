@@ -46,6 +46,10 @@ describe("KeyboardShortcutsSettings", () => {
     ["{Enter}", "Enter", false, "Shift+Enter"],
     ["{Shift>}{Enter}{/Shift}", "Shift+Enter", true, "Enter"],
   ])("records %s for sending prompts", async (keys, label, shift, newlineLabel) => {
+    shortcuts = {
+      ...DEFAULT_KEYBOARD_SHORTCUTS,
+      "send-prompt": { code: "Enter", primary: true, alt: false, shift: false },
+    };
     const user = userEvent.setup();
     render(<KeyboardShortcutsSettings />);
 
@@ -80,7 +84,7 @@ describe("KeyboardShortcutsSettings", () => {
     const user = userEvent.setup();
     render(<KeyboardShortcutsSettings />);
     await user.click(screen.getByRole("button", { name: /Record shortcut for Command menu/ }));
-    await user.keyboard("{Control>}{Enter}{/Control}");
+    await user.keyboard("{Control>}{Shift>}o{/Shift}{/Control}");
     expect(screen.getAllByText("This shortcut is already in use.")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
@@ -165,7 +169,7 @@ describe("KeyboardShortcutsSettings", () => {
     render(<KeyboardShortcutsSettings />);
     const recorder = screen.getByRole("button", { name: /Record shortcut for Command menu/ });
     await user.click(recorder);
-    await user.keyboard("{Control>}{Enter}{/Control}");
+    await user.keyboard("{Control>}{Shift>}o{/Shift}{/Control}");
     expect(recorder).toHaveAttribute("aria-invalid", "true");
     expect(recorder).toHaveAccessibleDescription("This shortcut is already in use.");
   });

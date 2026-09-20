@@ -133,11 +133,14 @@ describe("shortcut capture and display", () => {
 
   it("matches send bindings and identifies both sides of a collision", () => {
     expect(
+      matchesShortcut(createKeyEvent({ code: "Enter" }), DEFAULT_KEYBOARD_SHORTCUTS["send-prompt"])
+    ).toBe(true);
+    expect(
       matchesShortcut(
-        createKeyEvent({ code: "Enter", ctrlKey: true }),
+        createKeyEvent({ code: "Enter", shiftKey: true }),
         DEFAULT_KEYBOARD_SHORTCUTS["send-prompt"]
       )
-    ).toBe(true);
+    ).toBe(false);
     const duplicates = findDuplicateShortcutActions({
       ...DEFAULT_KEYBOARD_SHORTCUTS,
       "new-session": DEFAULT_KEYBOARD_SHORTCUTS["open-command-menu"],

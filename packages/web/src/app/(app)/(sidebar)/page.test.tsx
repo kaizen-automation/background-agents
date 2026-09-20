@@ -182,8 +182,7 @@ vi.mock("@/hooks/use-keyboard-shortcuts", () => ({
   useKeyboardShortcuts: () => ({
     shortcuts: mocks.keyboardShortcuts,
     labels: {
-      "send-prompt":
-        mocks.keyboardShortcuts["send-prompt"].code === "KeyJ" ? "Alt+J" : "Cmd/Ctrl+Enter",
+      "send-prompt": mocks.keyboardShortcuts["send-prompt"].code === "KeyJ" ? "Alt+J" : "Enter",
       "open-command-menu": "Cmd/Ctrl+K",
       "new-session": "Cmd/Ctrl+Shift+O",
       "toggle-sidebar": "Cmd/Ctrl+/",
@@ -322,7 +321,7 @@ describe("Home", () => {
     const promptCalls = () =>
       vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/prompt")).length;
 
-    fireEvent.keyDown(input, { key: "Enter", code: "Enter", ctrlKey: true });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(promptCalls()).toBe(0);
     fireEvent.keyDown(input, { key: "j", code: "KeyJ", altKey: true });
     await waitFor(() => expect(promptCalls()).toBe(1));

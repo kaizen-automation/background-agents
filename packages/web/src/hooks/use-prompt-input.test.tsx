@@ -79,7 +79,7 @@ describe("usePromptInput", () => {
     fireEvent.change(input, { target: { value: "Draft while connecting" } });
     expect(input).toHaveValue("Draft while connecting");
 
-    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
 
     expect(mocks.sendPrompt).not.toHaveBeenCalled();
     expect(input).toHaveValue("Draft while connecting");
@@ -96,7 +96,7 @@ describe("usePromptInput", () => {
     const input = screen.getByRole("textbox", { name: "Prompt" });
     fireEvent.change(input, { target: { value: "Ship it" } });
 
-    fireEvent.keyDown(input, { key: "Enter", code: "Enter", ctrlKey: true });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     expect(mocks.sendPrompt).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: "j", code: "KeyJ", altKey: true });
     expect(mocks.sendPrompt).toHaveBeenCalledOnce();
