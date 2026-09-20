@@ -617,6 +617,40 @@ describe("task activity grouping", () => {
     expect(screen.queryByText("Task activity")).not.toBeInTheDocument();
   });
 
+  it("renders Task results as scrollable markdown", async () => {
+    const user = userEvent.setup();
+    render(
+      <SessionTimeline
+        events={[
+          toolEvent("task", "task-call", 1, {
+            args: { description: "Review code" },
+            output:
+              '<task id="ses_md" state="completed">\n<task_result>\n## Summary\n\nThis is a **narrow** benchmark.\n\n| Scenario | Result |\n|---|---|\n| voice | pass |\n</task_result>\n</task>',
+          }),
+        ]}
+        sessionId="session-1"
+        currentParticipantId={null}
+        participantProfiles={{}}
+        isProcessing={false}
+        showSkeleton={false}
+        onLoadOlder={() => {}}
+        onOpenMedia={() => {}}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Task Review code/ }));
+    const result = screen.getByRole("button", { name: "Result" });
+    await user.click(result);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Summary" })).toBeInTheDocument();
+    expect(screen.getByText("narrow").tagName).toBe("STRONG");
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByText(/## Summary/)).not.toBeInTheDocument();
+    const scroller = result.nextElementSibling;
+    expect(scroller).toHaveClass("overflow-y-auto");
+    expect(scroller).toHaveClass("max-h-64");
+  });
+
   it("does not treat lifecycle-only child events as displayable activity", () => {
     const groups = buildTimelineItems([
       toolEvent("task", "task-call", 1),
@@ -781,9 +815,7 @@ describe("task activity grouping", () => {
     await user.click(results[0]);
     await user.click(results[1]);
     expect(screen.getByText("Ordinary <task_result> text is unchanged")).toBeInTheDocument();
-    expect(results[0].parentElement?.querySelector("pre")?.textContent).toBe(
-      "  Ordinary <task_result> text is unchanged\n\n"
-    );
+    expect(results[0].parentElement?.querySelector("pre")).not.toBeInTheDocument();
     expect(screen.getByText("Agent could not finish.")).toBeInTheDocument();
     expect(screen.queryByText(/<task_error>/)).not.toBeInTheDocument();
   });

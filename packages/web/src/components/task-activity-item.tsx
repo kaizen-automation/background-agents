@@ -5,6 +5,7 @@ import { formatSessionEventTime } from "@/lib/time";
 import { formatToolCall } from "@/lib/tool-formatters";
 import type { ToolCallEvent } from "@/lib/timeline-items";
 import { BoxIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { SafeMarkdown } from "@/components/safe-markdown";
 import { TimelineRowContent } from "./timeline-row-content";
 
 function stringArg(event: ToolCallEvent, key: string): string | null {
@@ -25,11 +26,13 @@ function cleanTaskResult(output: string | undefined): string | null {
 function TaskDisclosure({
   label,
   content,
+  markdown = false,
   isExpanded,
   onToggle,
 }: {
   label: string;
   content: string;
+  markdown?: boolean;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -49,9 +52,16 @@ function TaskDisclosure({
         {label}
       </button>
       {isExpanded && (
-        <pre className="max-h-64 whitespace-pre-wrap border-t border-border-muted px-3 py-2 text-xs text-foreground [overflow-wrap:anywhere]">
-          {content}
-        </pre>
+        <div
+          tabIndex={0}
+          className="max-h-64 overflow-y-auto border-t border-border-muted px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {markdown ? (
+            <SafeMarkdown content={content} className="text-xs" />
+          ) : (
+            <pre className="whitespace-pre-wrap [overflow-wrap:anywhere]">{content}</pre>
+          )}
+        </div>
       )}
     </div>
   );
@@ -138,6 +148,7 @@ export function TaskActivityItem({
             <TaskDisclosure
               label="Result"
               content={result}
+              markdown
               isExpanded={expandedSections.has(sectionKey("result"))}
               onToggle={() => onToggleSection(sectionKey("result"))}
             />
