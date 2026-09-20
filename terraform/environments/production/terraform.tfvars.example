@@ -71,6 +71,9 @@ modal_token_secret = ""
 modal_workspace               = ""
 modal_environment             = "main"
 modal_environment_web_suffix  = ""
+# Optional: Modal Proxy (workspace Settings > Proxies, same environment) whose
+# static IPs every sandbox egresses from. Empty disables.
+modal_proxy_name              = ""
 
 # Daytona REST API
 # Only required when sandbox_provider = "daytona"

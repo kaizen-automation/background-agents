@@ -41,6 +41,7 @@ file, fallback cache, or command-line argument ever carries a secret value.
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state`                |
 | `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                                       |
 | `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                                              |
+| `MODAL_PROXY_NAME` (optional)                                                      | Modal secret `internal-api`                 | Modal Proxy every sandbox egresses through (static IPs)          |
 | `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1` |
 | `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                   |
 | `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                     |

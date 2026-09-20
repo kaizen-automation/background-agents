@@ -109,6 +109,17 @@ variable "modal_environment_web_suffix" {
   }
 }
 
+variable "modal_proxy_name" {
+  description = "Optional Modal Proxy (workspace Settings > Proxies) in modal_environment; when set, every sandbox egresses via the proxy's static IPs. Empty disables."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^$|^[A-Za-z0-9._-]+$", var.modal_proxy_name))
+    error_message = "modal_proxy_name must be empty or contain only letters, digits, dots, underscores, and dashes."
+  }
+}
+
 # =============================================================================
 # GitHub OAuth Sign-In Credentials
 # =============================================================================

@@ -38,6 +38,7 @@ from sandbox_runtime.types import SandboxStatus, SessionConfig
 
 from ..app import app, llm_secrets
 from ..images.base import base_image
+from .egress_proxy import sandbox_proxy_kwargs
 from .vcs_env import inject_vcs_env_vars
 
 log = get_logger("manager")
@@ -461,6 +462,7 @@ class SandboxManager:
             "workdir": "/workspace",
             "env": env_vars,
             **_resource_kwargs(config.settings),
+            **sandbox_proxy_kwargs(),
         }
         if exposed_ports:
             create_kwargs["encrypted_ports"] = exposed_ports

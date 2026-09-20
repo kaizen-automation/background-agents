@@ -23,6 +23,7 @@ from sandbox_runtime.repo_image_callback import (
 
 from ..app import app
 from ..images.base import base_image
+from .egress_proxy import sandbox_proxy_kwargs
 from .manager import SNAPSHOT_FILESYSTEM_TIMEOUT_SECONDS
 from .vcs_env import inject_vcs_env_vars
 
@@ -120,6 +121,7 @@ class ModalBuildSessionService:
             workdir="/workspace",
             env=cast("dict[str, str | None]", env_vars),
             tags=tags,
+            **sandbox_proxy_kwargs(),
         )
         log.info(
             "sandbox.create_build",

@@ -61,6 +61,7 @@ github_app_secrets = modal.Secret.from_name(
 #   ALLOWED_CONTROL_PLANE_HOSTS: comma-separated list of permitted callback hosts
 #   SCM_PROVIDER: "github" (default) or "gitlab" — selects the clone credential type
 #   GITLAB_ACCESS_TOKEN: GitLab PAT used as clone credential when SCM_PROVIDER=gitlab
+#   MODAL_PROXY_NAME: Modal Proxy every sandbox egresses through (static IPs)
 internal_api_secret = modal.Secret.from_name(
     "internal-api",
     required_keys=["MODAL_API_SECRET"],

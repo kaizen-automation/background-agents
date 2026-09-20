@@ -219,6 +219,7 @@ MODAL_TOKEN_SECRET
 MODAL_WORKSPACE
 MODAL_ENVIRONMENT # Optional; defaults to main
 MODAL_ENVIRONMENT_WEB_SUFFIX # Optional; lowercase letters, digits, dashes; empty for workspace--... endpoints
+MODAL_PROXY_NAME # Optional; Modal Proxy in MODAL_ENVIRONMENT that every sandbox egresses through (static IPs)
 MODAL_API_SECRET
 
 # Sandbox provider
