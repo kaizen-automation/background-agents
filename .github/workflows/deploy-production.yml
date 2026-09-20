@@ -42,12 +42,31 @@ env:
   DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
 jobs:
+  check-secrets:
+    name: Check Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    steps:
+      - name: Check if DOPPLER_TOKEN is configured
+        id: check
+        run: |
+          # Fork PRs cannot read secrets, and a fresh fork has no DOPPLER_TOKEN yet;
+          # skip plan/apply with a notice instead of failing inside deploy.sh.
+          if [ -n "$DOPPLER_TOKEN" ]; then
+            echo "has-secrets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-secrets=false" >> $GITHUB_OUTPUT
+            echo "::notice::Deploy plan/apply skipped - DOPPLER_TOKEN secret not configured. See deploy/README.md."
+          fi
+
   deploy:
     name: ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Fork PRs cannot read DOPPLER_TOKEN; skip rather than fail.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: [check-secrets]
+    if: needs.check-secrets.outputs.has-secrets == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
