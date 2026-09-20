@@ -87,8 +87,10 @@ deploy/doppler/deploy.sh output
 
 Later changes: `deploy/doppler/deploy.sh plan` / `apply` (phase 2 is the default). Terraform builds
 the shared package, the control-plane Worker and the OpenNext web bundle, applies D1 migrations, and
-deploys the Modal app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node`,
-`npm`, `uv`, `jq`, `terraform` and `doppler` must be on `PATH`.
+deploys the Modal app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node`
+22, `npm`, `uv`, `jq`, `terraform` (>= 1.14, per `versions.tf`) and `doppler` must be on `PATH`.
+Wrangler and the Modal CLI come from the repository's own dependencies (`npm install`, and
+`uv sync --frozen` in `packages/modal-infra`).
 
 After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 

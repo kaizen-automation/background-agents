@@ -88,7 +88,7 @@ die() { log "error: $*"; exit 1; }
 
 require_tools() {
   local missing=()
-  for tool in doppler terraform node npm uv jq; do
+  for tool in doppler terraform node npm uv jq curl; do
     command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
   done
   ((${#missing[@]} == 0)) || die "missing tools: ${missing[*]}"
@@ -101,7 +101,8 @@ doppler_args() {
 # Verify every required secret exists without ever fetching a value.
 check_secret_names() {
   local names
-  names="$(doppler secrets --only-names --json $(doppler_args) | jq -r '.[]')" ||
+  names="$(doppler secrets --only-names --json $(doppler_args) |
+    jq -r 'if type == "array" then .[] else keys[] end')" ||
     die "unable to list secret names (is DOPPLER_TOKEN set and scoped to ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}?)"
   local missing=()
   for s in "${REQUIRED_SECRETS[@]}"; do
@@ -168,14 +169,25 @@ tf() {
   terraform -chdir="$TF_DIR" "$@"
 }
 
+# Cloudflare REST call; the token travels in a header from the environment only.
+cf_api() {
+  local method="$1" path="$2"; shift 2
+  curl -sS -o /dev/null -w '%{http_code}' -X "$method" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' \
+    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}${path}" "$@"
+}
+
 cmd_bootstrap() {
-  # Creating the bucket is idempotent; wrangler exits non-zero if it exists.
-  if ! (cd "$REPO_ROOT" && npx wrangler r2 bucket list 2>/dev/null | grep -qx "name: *${STATE_BUCKET}"); then
-    log "creating R2 bucket ${STATE_BUCKET}"
-    (cd "$REPO_ROOT" && npx wrangler r2 bucket create "$STATE_BUCKET" --location enam)
-  else
-    log "R2 bucket ${STATE_BUCKET} already exists"
-  fi
+  local status
+  status="$(cf_api GET "/r2/buckets/${STATE_BUCKET}")"
+  case "$status" in
+    200) log "R2 bucket ${STATE_BUCKET} already exists" ;;
+    404)
+      log "creating R2 bucket ${STATE_BUCKET}"
+      status="$(cf_api POST /r2/buckets --data "{\"name\":\"${STATE_BUCKET}\",\"locationHint\":\"enam\"}")"
+      [[ "$status" == 200 ]] || die "R2 bucket create failed (HTTP ${status})" ;;
+    *) die "R2 bucket lookup failed (HTTP ${status}); check CLOUDFLARE_API_TOKEN scopes" ;;
+  esac
   cmd_init
 }
 
