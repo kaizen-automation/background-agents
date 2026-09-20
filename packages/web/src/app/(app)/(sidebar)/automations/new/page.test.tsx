@@ -6,6 +6,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import type { ReactNode } from "react";
 import { DEFAULT_MODEL } from "@open-inspect/shared/models";
+import { HARNESS_IDS } from "@open-inspect/shared/harnesses";
 import NewAutomationPage from "./page";
 
 expect.extend(matchers);
@@ -54,6 +55,7 @@ vi.mock("@/hooks/use-enabled-models", () => ({
         models: [{ id: DEFAULT_MODEL, name: "Claude Sonnet 4.6", description: "" }],
       },
     ],
+    availableHarnesses: HARNESS_IDS,
     loading: false,
   }),
 }));

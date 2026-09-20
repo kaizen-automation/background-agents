@@ -2,11 +2,14 @@ import { Hono } from "hono";
 import { admit, dispatch } from "../routing/admit";
 import type { ControlPlaneHonoEnv } from "../routing/hono-env";
 import type { RepositoryRef, RepositoryPair } from "@open-inspect/shared/types/repositories";
+import { checkHarnessCompatibility } from "@open-inspect/shared/harnesses";
+import { isValidReasoningEffort } from "@open-inspect/shared/models";
 import {
-  checkHarnessCompatibility,
-  getValidHarnessOrDefault,
-} from "@open-inspect/shared/harnesses";
-import { getValidModelOrDefault, isValidReasoningEffort } from "@open-inspect/shared/models";
+  getDeploymentCatalog,
+  isDeploymentCatalogRejection,
+  resolveAvailableHarness,
+  resolveAvailableModel,
+} from "../deployment-catalog";
 import type { CreateSessionResponse } from "@open-inspect/shared/types/session-api";
 import { generateId } from "../auth/crypto";
 import { resolveGitHubCredentialAuthority } from "../source-control/github-credential-authority";
@@ -189,8 +192,11 @@ export async function handleCreateSession(
   }
 
   // Validate harness, model and reasoning effort once for both DO init and D1 index
-  const harness = getValidHarnessOrDefault(body.harness);
-  const model = getValidModelOrDefault(body.model);
+  const catalog = getDeploymentCatalog(env);
+  const harness = resolveAvailableHarness(catalog, body.harness);
+  if (isDeploymentCatalogRejection(harness)) return error(harness.message, 400);
+  const model = resolveAvailableModel(catalog, body.model);
+  if (isDeploymentCatalogRejection(model)) return error(model.message, 400);
   const harnessModelIncompatibility = checkHarnessCompatibility(harness, model);
   if (harnessModelIncompatibility) return error(harnessModelIncompatibility.message, 400);
   const reasoningEffort =

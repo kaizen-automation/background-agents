@@ -122,6 +122,26 @@ describe("ModelReasoningSelector", () => {
     expect(screen.queryByRole("menuitem", { name: /^agent/i })).not.toBeInTheDocument();
   });
 
+  it("offers no Agent row when the deployment runs a single harness", async () => {
+    render(
+      <ModelReasoningSelector
+        selectedModel="anthropic/claude-sonnet-4-6"
+        reasoningEffort="high"
+        items={items}
+        onModelChange={vi.fn()}
+        onReasoningEffortChange={vi.fn()}
+        harness="opencode"
+        onHarnessChange={vi.fn()}
+        harnesses={["opencode"]}
+      />
+    );
+
+    const trigger = screen.getByRole("button", { name: /^Agent, model and effort: OpenCode,/ });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+    await screen.findByRole("menuitem", { name: /model/i });
+    expect(screen.queryByRole("menuitem", { name: /^agent/i })).not.toBeInTheDocument();
+  });
+
   it("drills into agent options on mobile", async () => {
     mocks.isMobile = true;
     const onHarnessChange = vi.fn();

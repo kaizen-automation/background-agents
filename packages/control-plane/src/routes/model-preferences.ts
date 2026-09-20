@@ -14,7 +14,9 @@ import {
   ModelPreferencesConflictError,
   ModelPreferencesStore,
   ModelPreferencesValidationError,
+  type ModelPreferencesSnapshot,
 } from "../db/model-preferences";
+import { getDeploymentCatalog, type DeploymentCatalog } from "../deployment-catalog";
 import { createLogger } from "../logger";
 import { admit, dispatch } from "../routing/admit";
 import type { ControlPlaneHonoEnv } from "../routing/hono-env";
@@ -34,27 +36,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function snapshotResponse(snapshot: ModelPreferencesSnapshot, catalog: DeploymentCatalog) {
+  return json({
+    enabledModels: snapshot.enabledModels,
+    availableModels: snapshot.availableModels,
+    availableHarnesses: catalog.harnesses,
+    revision: snapshot.revision,
+  });
+}
+
 async function getModelPreferences(
   request: Request,
-  _env: Env,
+  env: Env,
   _params: object,
   ctx: RequestContext
 ): Promise<Response> {
   const strict = new URL(request.url).searchParams.get("strict") === "true";
-  const store = new ModelPreferencesStore(ctx.db);
+  const catalog = getDeploymentCatalog(env);
+  const store = new ModelPreferencesStore(ctx.db, catalog);
 
   try {
-    const snapshot = await store.getSnapshot();
-    return json({ enabledModels: snapshot.enabledModels, revision: snapshot.revision });
+    return snapshotResponse(await store.getSnapshot(), catalog);
   } catch (e) {
     logger.error("Failed to get model preferences", {
       error: e instanceof Error ? e.message : String(e),
       request_id: ctx.request_id,
       trace_id: ctx.trace_id,
     });
-    return strict
-      ? error("Model preferences storage unavailable", 503)
-      : json({ enabledModels: DEFAULT_ENABLED_MODELS, revision: 0 });
+    if (strict) return error("Model preferences storage unavailable", 503);
+    const availableSet = new Set<string>(catalog.models);
+    const enabledModels = DEFAULT_ENABLED_MODELS.filter((model) => availableSet.has(model));
+    return snapshotResponse(
+      {
+        enabledModels: enabledModels.length > 0 ? enabledModels : [...catalog.models],
+        availableModels: [...catalog.models],
+        revision: 0,
+      },
+      catalog
+    );
   }
 }
 
@@ -101,7 +120,7 @@ function parseModelPreferenceChanges(body: unknown): ModelPreferenceChange[] | R
 
 async function patchModelPreferences(
   request: Request,
-  _env: Env,
+  env: Env,
   _params: object,
   ctx: RequestContext
 ): Promise<Response> {
@@ -112,8 +131,9 @@ async function patchModelPreferences(
   const changes = parseModelPreferenceChanges(body);
   if (changes instanceof Response) return changes;
 
+  const catalog = getDeploymentCatalog(env);
   try {
-    const snapshot = await new ModelPreferencesStore(ctx.db).applyChanges(changes);
+    const snapshot = await new ModelPreferencesStore(ctx.db, catalog).applyChanges(changes);
     logger.info("model_preferences.updated", {
       event: "model_preferences.updated",
       enabled_count: snapshot.enabledModels.length,
@@ -121,7 +141,7 @@ async function patchModelPreferences(
       request_id: ctx.request_id,
       trace_id: ctx.trace_id,
     });
-    return json({ enabledModels: snapshot.enabledModels, revision: snapshot.revision });
+    return snapshotResponse(snapshot, catalog);
   } catch (e) {
     if (e instanceof ModelPreferencesValidationError) return error(e.message, 400);
     if (e instanceof ModelPreferencesConflictError) return error(e.message, 409);

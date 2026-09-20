@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { DEFAULT_MODEL } from "@open-inspect/shared/models";
+import { HARNESS_IDS } from "@open-inspect/shared/harnesses";
 import {
   DEFAULT_KEYBOARD_SHORTCUTS,
   type KeyboardShortcutPreferences,
@@ -172,6 +173,7 @@ vi.mock("@/hooks/use-enabled-models", () => ({
   useEnabledModels: () => ({
     enabledModels: mocks.enabledModelsValue,
     enabledModelOptions: mocks.enabledModelOptionsValue,
+    availableHarnesses: HARNESS_IDS,
     loading: false,
   }),
 }));

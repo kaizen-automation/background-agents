@@ -8,6 +8,7 @@ import {
   type ValidModel,
 } from "@open-inspect/shared/models";
 import type { SqlDatabase } from "./sql-database";
+import { getDeploymentCatalog, type DeploymentCatalog } from "../deployment-catalog";
 
 const MAX_MODEL_PREFERENCE_WRITE_ATTEMPTS = 3;
 
@@ -31,12 +32,20 @@ interface ModelPreferencesRow {
 }
 
 export interface ModelPreferencesSnapshot {
+  /** Enabled models, already narrowed to `availableModels`. */
   enabledModels: ValidModel[];
+  /** Models this deployment can run at all (the operator allowlist). */
+  availableModels: ValidModel[];
   revision: number;
 }
 
+const UNRESTRICTED_CATALOG = getDeploymentCatalog({});
+
 export class ModelPreferencesStore {
-  constructor(private readonly db: SqlDatabase) {}
+  constructor(
+    private readonly db: SqlDatabase,
+    private readonly catalog: DeploymentCatalog = UNRESTRICTED_CATALOG
+  ) {}
 
   /** Resolve persisted preferences through the canonical decoding policy. */
   async getSnapshot(): Promise<ModelPreferencesSnapshot> {
@@ -84,10 +93,7 @@ export class ModelPreferencesStore {
             .run();
 
       if (result.meta.changes === 1) {
-        return {
-          enabledModels: next,
-          revision: row ? row.revision + 1 : 1,
-        };
+        return this.narrowToDeployment(next, row ? row.revision + 1 : 1);
       }
     }
 
@@ -104,6 +110,11 @@ export class ModelPreferencesStore {
       if (!isValidModel(change.modelId) || normalizeModelId(change.modelId) !== change.modelId) {
         throw new ModelPreferencesValidationError(`Invalid canonical model ID: ${change.modelId}`);
       }
+      if (change.enabled && !this.catalog.models.includes(change.modelId)) {
+        throw new ModelPreferencesValidationError(
+          `Model ${change.modelId} is not available in this deployment`
+        );
+      }
       if (seen.has(change.modelId)) {
         throw new ModelPreferencesValidationError(`Duplicate model preference: ${change.modelId}`);
       }
@@ -111,12 +122,28 @@ export class ModelPreferencesStore {
     }
   }
 
+  /**
+   * Intersect persisted preferences with the deployment allowlist. A
+   * preference set that leaves nothing runnable (e.g. the allowlist changed
+   * under it) falls back to the whole allowlist rather than an empty picker.
+   */
+  private narrowToDeployment(
+    enabled: readonly ValidModel[],
+    revision: number
+  ): ModelPreferencesSnapshot {
+    const available = [...this.catalog.models];
+    const availableSet = new Set(available);
+    const narrowed = enabled.filter((model) => availableSet.has(model));
+    return {
+      enabledModels: narrowed.length > 0 ? narrowed : available,
+      availableModels: available,
+      revision,
+    };
+  }
+
   private decodeSnapshot(row: ModelPreferencesRow | null): ModelPreferencesSnapshot {
     if (!row) {
-      return {
-        enabledModels: DEFAULT_ENABLED_MODELS,
-        revision: 0,
-      };
+      return this.narrowToDeployment(DEFAULT_ENABLED_MODELS, 0);
     }
 
     let stored: string[] | null = null;
@@ -131,14 +158,17 @@ export class ModelPreferencesStore {
 
     const normalized = normalizeValidModels(stored ?? []);
     const enabledModels = normalized.length > 0 ? normalized : DEFAULT_ENABLED_MODELS;
-    return {
-      enabledModels,
-      revision: row.revision,
-    };
+    return this.narrowToDeployment(enabledModels, row.revision);
   }
 }
 
-/** Resolve the currently enabled catalog, using defaults only when no usable preferences exist. */
-export async function getEffectiveEnabledModels(db: SqlDatabase): Promise<ValidModel[]> {
-  return new ModelPreferencesStore(db).getEnabledModels();
+/**
+ * Resolve the currently enabled catalog, using defaults only when no usable
+ * preferences exist, narrowed to what this deployment can run.
+ */
+export async function getEffectiveEnabledModels(
+  db: SqlDatabase,
+  catalog: DeploymentCatalog = UNRESTRICTED_CATALOG
+): Promise<ValidModel[]> {
+  return new ModelPreferencesStore(db, catalog).getEnabledModels();
 }

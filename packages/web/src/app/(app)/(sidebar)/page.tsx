@@ -108,7 +108,7 @@ export default function Home() {
     reasoningEffort: getDefaultReasoningEffort(DEFAULT_MODEL),
   });
   const [modelPreferenceDraft, setModelPreferenceDraft] = useState<ModelPreference | null>(null);
-  const [harness, setHarness] = useState<HarnessId>(DEFAULT_HARNESS);
+  const [storedHarness, setHarness] = useState<HarnessId>(DEFAULT_HARNESS);
   const [prompt, setPrompt] = useState("");
   const [skillSelection, setSkillSelection] = useState<SessionSkillSelection>({ mode: "all" });
   const [providerSelections, setProviderSelections] = useState<ModelProviderSelections>({});
@@ -119,7 +119,17 @@ export default function Home() {
   const [error, setError] = useState("");
   const submitInFlightRef = useRef(false);
   const hasHydratedModelPreferencesRef = useRef(false);
-  const { enabledModels, enabledModelOptions, loading: loadingEnabledModels } = useEnabledModels();
+  const {
+    enabledModels,
+    enabledModelOptions,
+    availableHarnesses,
+    loading: loadingEnabledModels,
+  } = useEnabledModels();
+  // A remembered harness this deployment no longer offers falls back to the
+  // first available one, so the composer never submits an unavailable harness.
+  const harness: HarnessId = availableHarnesses.includes(storedHarness)
+    ? storedHarness
+    : availableHarnesses[0];
   const targetRequestFields = buildRequestFields();
   const currentSkillPreviewTarget = session ? skillPreviewTarget(targetRequestFields) : null;
   const {
@@ -399,6 +409,7 @@ export default function Home() {
       reasoningEffort={reasoningEffort}
       setReasoningEffort={handleReasoningEffortChange}
       harness={harness}
+      availableHarnesses={availableHarnesses}
       setHarness={handleHarnessChange}
       prompt={prompt}
       handlePromptChange={handlePromptChange}
@@ -437,6 +448,7 @@ function HomeContent({
   reasoningEffort,
   setReasoningEffort,
   harness,
+  availableHarnesses,
   setHarness,
   prompt,
   handlePromptChange,
@@ -465,6 +477,7 @@ function HomeContent({
   reasoningEffort: ReasoningEffort | undefined;
   setReasoningEffort: (value: ReasoningEffort | undefined) => void;
   harness: HarnessId;
+  availableHarnesses: readonly HarnessId[];
   setHarness: (value: HarnessId) => void;
   prompt: string;
   handlePromptChange: (value: string) => void;
@@ -644,6 +657,7 @@ function HomeContent({
                       onReasoningEffortChange={setReasoningEffort}
                       harness={harness}
                       onHarnessChange={setHarness}
+                      harnesses={availableHarnesses}
                       disabled={creating}
                     />
 

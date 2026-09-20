@@ -741,6 +741,23 @@ variable "app_icon_url" {
   default     = ""
 }
 
+variable "model_allowlist" {
+  description = "Models this deployment may run, as canonical shared-catalog IDs (e.g. anthropic/claude-sonnet-4-6). Only these appear in the model picker and Settings > Models, and the control plane rejects any other model on session, child-session, automation and queued-message paths. Empty = the whole shared catalog."
+  type        = list(string)
+  default     = []
+}
+
+variable "harness_allowlist" {
+  description = "Agent harnesses this deployment may run (claude, opencode). A single entry hides the Agent picker in the web UI and the control plane rejects any other harness. Empty = every harness."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for h in var.harness_allowlist : contains(["claude", "opencode"], h)])
+    error_message = "harness_allowlist entries must be 'claude' or 'opencode'."
+  }
+}
+
 variable "enable_durable_object_bindings" {
   description = "Enable DO bindings. For initial deployment: set to false (applies migrations), then set to true (adds bindings)."
   type        = bool

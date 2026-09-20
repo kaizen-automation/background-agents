@@ -7,7 +7,7 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 import type { ReactNode } from "react";
 import { MAX_AUTOMATION_REPOSITORIES } from "@open-inspect/shared/types/automations";
 import { DEFAULT_MODEL } from "@open-inspect/shared/models";
-import { DEFAULT_HARNESS } from "@open-inspect/shared/harnesses";
+import { DEFAULT_HARNESS, HARNESS_IDS } from "@open-inspect/shared/harnesses";
 import { AutomationForm, type AutomationFormValues } from "./automation-form";
 import { CronPicker } from "./cron-picker";
 
@@ -87,6 +87,7 @@ vi.mock("@/hooks/use-enabled-models", () => ({
         models: [{ id: "openai/gpt-5.4", name: "GPT-5.4", description: "Test model" }],
       },
     ],
+    availableHarnesses: HARNESS_IDS,
     loading: loadingModelsValue,
   }),
 }));

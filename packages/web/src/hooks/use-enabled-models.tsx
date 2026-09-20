@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   MODEL_OPTIONS,
   DEFAULT_ENABLED_MODELS,
+  VALID_MODELS,
   applyModelPreferenceChanges,
   isValidModel,
   normalizeModelId,
@@ -14,6 +15,7 @@ import {
   type ModelPreferenceChange,
   type ValidModel,
 } from "@open-inspect/shared/models";
+import { HARNESS_IDS, isValidHarness, type HarnessId } from "@open-inspect/shared/harnesses";
 import { browserApiFetch } from "@/lib/browser-api-fetch";
 
 export const MODEL_PREFERENCES_KEY = "/api/model-preferences";
@@ -22,11 +24,24 @@ const INITIAL_MODEL_PREFERENCES_REVISION = 0;
 const canonicalModelSchema = z.custom<ValidModel>(
   (value) => typeof value === "string" && isValidModel(value) && normalizeModelId(value) === value
 );
+const harnessSchema = z.custom<HarnessId>(
+  (value) => typeof value === "string" && isValidHarness(value)
+);
 const modelPreferencesSchema = z.object({
   enabledModels: z.array(canonicalModelSchema).nonempty(),
+  availableModels: z.array(canonicalModelSchema).nonempty().optional(),
+  availableHarnesses: z.array(harnessSchema).nonempty().optional(),
   revision: z.number().int().nonnegative(),
 });
 type ModelPreferencesResponse = z.infer<typeof modelPreferencesSchema>;
+
+function filterModelOptions(models: readonly ValidModel[]): ModelCategory[] {
+  const allowed = new Set(models);
+  return MODEL_OPTIONS.map((group) => ({
+    ...group,
+    models: group.models.filter((model) => allowed.has(model.id)),
+  })).filter((group) => group.models.length > 0);
+}
 
 function responseError(body: unknown): string | null {
   if (typeof body !== "object" || body === null || !("error" in body)) return null;
@@ -36,6 +51,11 @@ function responseError(body: unknown): string | null {
 export function useEnabledModels(): {
   enabledModels: string[];
   enabledModelOptions: ModelCategory[];
+  /** Every model this deployment can run; the Settings → Models toggles. */
+  availableModels: ValidModel[];
+  availableModelOptions: ModelCategory[];
+  /** Harnesses this deployment can run; a single entry hides the Agent picker. */
+  availableHarnesses: HarnessId[];
   loading: boolean;
   error: unknown;
   saving: boolean;
@@ -45,19 +65,32 @@ export function useEnabledModels(): {
     useSWR<ModelPreferencesResponse>(MODEL_PREFERENCES_KEY);
   const [activeWrites, setActiveWrites] = useState(0);
 
+  const availableModels = useMemo<ValidModel[]>(() => {
+    const normalized = normalizeValidModels(data?.availableModels ?? []);
+    return normalized.length > 0 ? normalized : [...VALID_MODELS];
+  }, [data]);
+
+  const availableHarnesses = useMemo<HarnessId[]>(() => {
+    const harnesses = data?.availableHarnesses ?? [];
+    return harnesses.length > 0 ? [...harnesses] : [...HARNESS_IDS];
+  }, [data]);
+
   const enabledModels = useMemo<ValidModel[]>(() => {
     if (isLoading) return [];
-    const normalized = normalizeValidModels(data?.enabledModels ?? []);
-    return normalized.length > 0 ? normalized : DEFAULT_ENABLED_MODELS;
-  }, [data, isLoading]);
+    const availableSet = new Set(availableModels);
+    const normalized = normalizeValidModels(data?.enabledModels ?? []).filter((model) =>
+      availableSet.has(model)
+    );
+    if (normalized.length > 0) return normalized;
+    const defaults = DEFAULT_ENABLED_MODELS.filter((model) => availableSet.has(model));
+    return defaults.length > 0 ? defaults : availableModels;
+  }, [availableModels, data, isLoading]);
 
-  const enabledModelOptions = useMemo(() => {
-    const enabledSet = new Set(enabledModels);
-    return MODEL_OPTIONS.map((group) => ({
-      ...group,
-      models: group.models.filter((model) => enabledSet.has(model.id)),
-    })).filter((group) => group.models.length > 0);
-  }, [enabledModels]);
+  const enabledModelOptions = useMemo(() => filterModelOptions(enabledModels), [enabledModels]);
+  const availableModelOptions = useMemo(
+    () => filterModelOptions(availableModels),
+    [availableModels]
+  );
 
   const updateModels = useCallback(
     async (changes: readonly ModelPreferenceChange[]): Promise<void> => {
@@ -86,6 +119,8 @@ export function useEnabledModels(): {
           {
             optimisticData: {
               enabledModels: next,
+              availableModels,
+              availableHarnesses,
               revision: data?.revision ?? INITIAL_MODEL_PREFERENCES_REVISION,
             },
             rollbackOnError: true,
@@ -101,12 +136,15 @@ export function useEnabledModels(): {
         setActiveWrites((current) => current - 1);
       }
     },
-    [data?.revision, enabledModels, error, isLoading, mutate]
+    [availableHarnesses, availableModels, data?.revision, enabledModels, error, isLoading, mutate]
   );
 
   return {
     enabledModels,
     enabledModelOptions,
+    availableModels,
+    availableModelOptions,
+    availableHarnesses,
     loading: isLoading,
     error,
     saving: activeWrites > 0,
