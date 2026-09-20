@@ -20,6 +20,7 @@
     "test:deploy-aws": "node --test scripts/deploy-aws.test.mjs",
     "test:rbac-bootstrap-owner": "node --experimental-transform-types --test scripts/bootstrap-workspace-owner.test.ts",
     "test:user-merge-cli": "node --experimental-transform-types --test scripts/merge-split-users.test.ts",
+    "test:integrations-seed": "node --experimental-transform-types --test scripts/seed-integrations.test.ts",
     "test:cf-logs-cli": "node --experimental-strip-types --test scripts/cf-logs.test.ts",
     "test:terraform-workflow-contract": "node --test scripts/terraform-workflow-contract.test.mjs",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
@@ -29,6 +30,7 @@
     "build": "npm run build -w @open-inspect/shared && npm run build --workspaces --if-present",
     "build:opencomputer-template": "npm run build-template -w @open-inspect/opencomputer-infra --",
     "rbac:bootstrap-owner": "node --experimental-transform-types scripts/bootstrap-workspace-owner.ts",
+    "integrations:seed": "node --experimental-transform-types scripts/seed-integrations.ts",
     "prepare": "node -e \"if (process.env.CI) process.exit(0)\" && husky"
   },
   "devDependencies": {
