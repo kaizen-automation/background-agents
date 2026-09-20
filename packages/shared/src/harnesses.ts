@@ -44,6 +44,7 @@ export const HARNESS_CATALOG = {
       anthropic: ["api_key"],
       openai: ["api_key", "provider_account"],
       xai: ["api_key", "provider_account"],
+      azure: ["api_key"],
     },
     resume: "session_id",
   },
