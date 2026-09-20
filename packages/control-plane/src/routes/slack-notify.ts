@@ -15,6 +15,7 @@ import {
   type SlackNotifySuccessOutput,
   type SlackWireDenialReason,
 } from "@open-inspect/shared/slack";
+import { resolveAppName } from "@open-inspect/shared/app-name";
 import type { SlackGlobalSettings } from "@open-inspect/shared/types/integrations";
 import { IntegrationSettingsStore, resolveSlackSettings } from "../db/integration-settings";
 import { SessionIndexStore } from "../db/session-index";
@@ -129,7 +130,7 @@ export async function handleSlackNotify(
   const blocks = buildBlocks({
     sections,
     sessionId,
-    appName: env.APP_NAME ?? "Open-Inspect",
+    appName: resolveAppName(env),
     webAppUrl: env.WEB_APP_URL,
   });
   // Without top-level text, Slack derives screen-reader text from the blocks.

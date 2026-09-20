@@ -9,6 +9,7 @@ import {
   type GitHubAutofixFeedback,
   type GitHubDiffLine,
 } from "@/lib/github-autofix-feedback";
+import { APP_NAME } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import { getSafeExternalUrl } from "@/lib/urls";
 
@@ -298,7 +299,7 @@ function DiffHunk({
       ))}
       {truncated && (
         <div className="border-t border-border-muted px-3 py-1 text-muted-foreground">
-          Diff context truncated by Open Inspect
+          Diff context truncated by {APP_NAME}
         </div>
       )}
     </div>
