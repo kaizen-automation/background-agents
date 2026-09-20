@@ -24,7 +24,7 @@
 #
 # Environment:
 #   DOPPLER_TOKEN            service token for the deployment config (read access is enough)
-#   DOPPLER_PROJECT          default: open-inspect
+#   DOPPLER_PROJECT          default: kaizen-code
 #   DOPPLER_CONFIG           default: prd
 #   OI_TFVARS_JSON           non-secret inputs; default: deploy/production.tfvars.json
 set -euo pipefail
@@ -32,7 +32,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${REPO_ROOT}/terraform/environments/production"
 STATE_BUCKET="open-inspect-terraform-state"
-DOPPLER_PROJECT="${DOPPLER_PROJECT:-open-inspect}"
+DOPPLER_PROJECT="${DOPPLER_PROJECT:-kaizen-code}"
 DOPPLER_CONFIG="${DOPPLER_CONFIG:-prd}"
 OI_TFVARS_JSON="${OI_TFVARS_JSON:-${REPO_ROOT}/deploy/production.tfvars.json}"
 
