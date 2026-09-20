@@ -26,7 +26,15 @@ import {
   getValidHarnessOrDefault,
   selectedProviderAuthModes,
 } from "@open-inspect/shared/harnesses";
-import { getValidModelOrDefault, isValidModel } from "@open-inspect/shared/models";
+import { isValidModel } from "@open-inspect/shared/models";
+import {
+  getDeploymentCatalog,
+  isDeploymentCatalogRejection,
+  isHarnessAvailable,
+  isModelAvailable,
+  resolveAvailableHarness,
+  resolveAvailableModel,
+} from "../deployment-catalog";
 import {
   AutomationStore,
   parseAutomationTriggerFields,
@@ -209,8 +217,11 @@ async function handleCreateAutomation(
   }
 
   // Validate harness and model
-  const harness = getValidHarnessOrDefault(body.harness);
-  const model = getValidModelOrDefault(body.model);
+  const catalog = getDeploymentCatalog(env);
+  const harness = resolveAvailableHarness(catalog, body.harness);
+  if (isDeploymentCatalogRejection(harness)) return error(harness.message, 400);
+  const model = resolveAvailableModel(catalog, body.model);
+  if (isDeploymentCatalogRejection(model)) return error(model.message, 400);
   const harnessIncompatibility = checkHarnessCompatibility(harness, model);
   if (harnessIncompatibility) return error(harnessIncompatibility.message, 400);
   const reasoningEffort = resolveReasoningEffort(model, body.reasoningEffort);
@@ -460,9 +471,20 @@ async function handleUpdateAutomation(
     return error("Invalid model", 400);
   }
 
-  const nextModel = body.model !== undefined ? getValidModelOrDefault(body.model) : existing.model;
+  const catalog = getDeploymentCatalog(env);
+  const nextModel =
+    body.model !== undefined ? resolveAvailableModel(catalog, body.model) : existing.model;
+  if (isDeploymentCatalogRejection(nextModel)) return error(nextModel.message, 400);
   const nextHarness =
     body.harness !== undefined ? body.harness : getValidHarnessOrDefault(existing.harness);
+  // A stored automation may predate a narrowed allowlist; refuse to save any
+  // combination this deployment can no longer run.
+  if (!isHarnessAvailable(catalog, nextHarness)) {
+    return error(`Harness "${nextHarness}" is not available in this deployment.`, 400);
+  }
+  if (!isModelAvailable(catalog, nextModel)) {
+    return error(`Model "${nextModel}" is not available in this deployment.`, 400);
+  }
   // The selections the automation will have after this write: the replacement
   // when one is given, else the stored pins whenever harness or model moves.
   const nextProviderSelections =

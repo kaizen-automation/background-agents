@@ -1,6 +1,7 @@
 import {
   checkHarnessCompatibility,
   getValidHarnessOrDefault,
+  type HarnessId,
 } from "@open-inspect/shared/harnesses";
 import { generateId, hashToken } from "../auth/crypto";
 import type { SessionIndexStore } from "../db/session-index";
@@ -154,7 +155,10 @@ export class SessionMessageQueue {
     private readonly participantService: ParticipantService,
     private readonly callbackService: CallbackNotificationService,
     private readonly sessionStatus: SessionStatusService,
-    private readonly getProviderAuthenticationError: (model: string) => Promise<string | null>,
+    private readonly getProviderAuthenticationError: (
+      model: string,
+      harness: HarnessId
+    ) => Promise<string | null>,
     private readonly messageFailures: MessageFailureService,
     private readonly sandboxLifecycle: SandboxLifecycle,
     private readonly sessionIndex: Pick<SessionIndexStore, "touchUpdatedAt">,
@@ -392,14 +396,13 @@ export class SessionMessageQueue {
     const now = Date.now();
     const session = this.repository.getSession();
     const resolvedModel = getValidModelOrDefault(message.model || session?.model);
+    const resolvedHarness = getValidHarnessOrDefault(session?.harness);
     // The same rule as admission, applied at dispatch: the harness is fixed
     // at create, so nothing may reach the sandbox on a model it cannot run.
-    const harnessIncompatibility = checkHarnessCompatibility(
-      getValidHarnessOrDefault(session?.harness),
-      resolvedModel
-    );
+    const harnessIncompatibility = checkHarnessCompatibility(resolvedHarness, resolvedModel);
     const authenticationError =
-      harnessIncompatibility?.message ?? (await this.getProviderAuthenticationError(resolvedModel));
+      harnessIncompatibility?.message ??
+      (await this.getProviderAuthenticationError(resolvedModel, resolvedHarness));
     if (this.repository.getSession()?.budget_exhausted === 1) return;
     if (authenticationError) {
       this.log.error("provider_auth.unavailable", {

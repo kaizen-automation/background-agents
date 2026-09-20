@@ -61,6 +61,10 @@ export interface EnvConfig {
   ALLOWED_EMAILS?: string;
   ALLOWED_GITHUB_ORGS?: string;
   UNSAFE_ALLOW_ALL_USERS?: string;
+  // Comma-separated canonical model ids / harness ids this deployment can run;
+  // empty means the whole shared catalog. See deployment-catalog.ts.
+  MODEL_ALLOWLIST?: string;
+  HARNESS_ALLOWLIST?: string;
   CF_ACCOUNT_ID?: string; // Cloudflare account ID
   SANDBOX_PROVIDER?: string; // "modal" (default), "daytona", "vercel", "opencomputer", or "e2b"
   MODAL_WORKSPACE?: string; // Modal workspace name

@@ -20,6 +20,7 @@ import {
 } from "@open-inspect/shared/models";
 import { generateId } from "../auth/crypto";
 import { getEffectiveEnabledModels } from "../db/model-preferences";
+import { getDeploymentCatalog, isHarnessAvailable } from "../deployment-catalog";
 import { SessionIndexStore } from "../db/session-index";
 import { createLogger } from "../logger";
 import { SessionInternalPaths } from "../session/contracts";
@@ -154,9 +155,10 @@ export async function handleSpawnChild(
   });
   if (targetAuthorizationError) return targetAuthorizationError;
 
+  const catalog = getDeploymentCatalog(env);
   let enabledModels: ValidModel[];
   try {
-    enabledModels = await getEffectiveEnabledModels(ctx.db);
+    enabledModels = await getEffectiveEnabledModels(ctx.db, catalog);
   } catch (e) {
     logger.error("Failed to resolve enabled models for child session", {
       event: "session.spawn_child_model_preferences_failed",
@@ -177,6 +179,9 @@ export async function handleSpawnChild(
   const model = resolveEnabledModel({ model: requestedModel, enabledModels });
   // The child runs on the parent's harness; the requested model must run there.
   const harness = spawnContext.harness;
+  if (!isHarnessAvailable(catalog, harness)) {
+    return error(`Harness "${harness}" is not available in this deployment.`, 400);
+  }
   const harnessIncompatibility = checkHarnessCompatibility(harness, model);
   if (harnessIncompatibility) {
     return error(harnessIncompatibility.message, 400);

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ENABLED_MODELS } from "@open-inspect/shared/models";
+import { DEFAULT_ENABLED_MODELS, VALID_MODELS } from "@open-inspect/shared/models";
 import type { SqlDatabase, SqlResult, SqlStatement } from "./sql-database";
+import { getDeploymentCatalog } from "../deployment-catalog";
 import {
   ModelPreferencesConflictError,
   ModelPreferencesStore,
+  ModelPreferencesValidationError,
   getEffectiveEnabledModels,
 } from "./model-preferences";
 
@@ -77,9 +79,58 @@ describe("ModelPreferencesStore", () => {
 
     expect(snapshot).toEqual({
       enabledModels: DEFAULT_ENABLED_MODELS,
+      availableModels: VALID_MODELS,
       revision: 1,
     });
     await expect(getEffectiveEnabledModels(db)).resolves.toEqual(DEFAULT_ENABLED_MODELS);
+  });
+
+  describe("with a deployment allowlist", () => {
+    const catalog = getDeploymentCatalog({ MODEL_ALLOWLIST: `${SONNET},${HAIKU}` });
+
+    it("narrows persisted preferences to the allowlist", async () => {
+      const db = new ConflictDatabase(false, JSON.stringify([GPT, HAIKU]));
+
+      await expect(new ModelPreferencesStore(db, catalog).getSnapshot()).resolves.toEqual({
+        enabledModels: [HAIKU],
+        availableModels: [HAIKU, SONNET],
+        revision: 1,
+      });
+      await expect(getEffectiveEnabledModels(db, catalog)).resolves.toEqual([HAIKU]);
+    });
+
+    it("falls back to the whole allowlist when nothing persisted is runnable", async () => {
+      const db = new ConflictDatabase(false, JSON.stringify([GPT]));
+
+      await expect(getEffectiveEnabledModels(db, catalog)).resolves.toEqual([HAIKU, SONNET]);
+    });
+
+    it("narrows the defaults for missing storage", async () => {
+      const db = new ConflictDatabase(false, "{");
+
+      await expect(getEffectiveEnabledModels(db, catalog)).resolves.toEqual([HAIKU, SONNET]);
+    });
+
+    it("refuses to enable a model outside the allowlist", async () => {
+      const db = new ConflictDatabase();
+
+      await expect(
+        new ModelPreferencesStore(db, catalog).applyChanges([{ modelId: GPT, enabled: true }])
+      ).rejects.toBeInstanceOf(ModelPreferencesValidationError);
+      expect(db.writes).toHaveLength(0);
+    });
+
+    it("drops unavailable models from the persisted set on write", async () => {
+      const db = new ConflictDatabase(true);
+
+      await expect(
+        new ModelPreferencesStore(db, catalog).applyChanges([{ modelId: SONNET, enabled: true }])
+      ).rejects.toBeInstanceOf(ModelPreferencesConflictError);
+      expect(db.writes.length).toBeGreaterThan(0);
+      for (const values of db.writes) {
+        expect(JSON.parse(values[0] as string)).not.toContain(GPT);
+      }
+    });
   });
 
   it("reapplies a change to the winning value after a CAS conflict", async () => {

@@ -15,6 +15,7 @@ import httpx
 from .constants import OPENCODE_PORT
 from .git_excludes import install_runtime_git_excludes
 from .mcp_packages import McpPackageInstaller
+from .opencode_model_config import build_model_config
 from .process_output import iter_process_lines
 from .sandbox_bin import install_bin_scripts
 
@@ -410,26 +411,11 @@ class OpenCodeServer:
 
         # Build OpenCode config from session settings
         opencode_config: dict[str, Any] = {
-            "model": f"{self.provider}/{self.model}",
+            **build_model_config(self.provider, self.model),
             "permission": {"*": {"*": "allow"}},
-            "provider": {
-                "anthropic": {
-                    "models": {
-                        model: {
-                            "variants": {
-                                effort: {"thinking": {"type": "enabled", "budgetTokens": budget}}
-                                for effort, budget in (("high", 16_000), ("max", 31_999))
-                            }
-                        }
-                        for model in (
-                            "claude-haiku-4-5",
-                            "claude-sonnet-4-5",
-                            "claude-opus-4-5",
-                        )
-                    }
-                }
-            },
         }
+        if opencode_config["model"] != f"{self.provider}/{self.model}":
+            self.log.info("opencode.model_routed", model=opencode_config["model"])
         if self.provider == AZURE_PROVIDER_ID:
             opencode_config["provider"][AZURE_PROVIDER_ID] = build_azure_provider_config(os.environ)
 

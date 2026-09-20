@@ -68,7 +68,25 @@ The Claude harness runs Claude Code, which speaks to Bedrock natively when
 `packages/sandbox-runtime/.../harness/claude_env.py` (upstream only accepts `ANTHROPIC_API_KEY`);
 the model ids in the UI (`anthropic/claude-*`) are passed to Claude Code, which maps them to Bedrock
 inference profiles itself. Bedrock only knows dated snapshot ids for Haiku/Sonnet/Opus 4.5, so in
-Bedrock mode the harness pins those three (`BEDROCK_MODEL_SNAPSHOTS` in `harness/claude.py`).
+Bedrock mode the harness pins those three (`BEDROCK_MODEL_SNAPSHOTS`, now in `harness/bedrock.py`).
+
+OpenCode sessions use Bedrock in this mode too: the sandbox's generated opencode.json
+(`opencode_model_config.py`) points `model` at OpenCode's built-in `amazon-bedrock` provider
+(`@ai-sdk/amazon-bedrock`, bundled in the pinned OpenCode — no runtime npm fetch) with
+`provider.amazon-bedrock.options.region = $AWS_REGION`, and per-prompt model switches are translated
+the same way. The control plane still sees the catalog id; only the id handed to OpenCode changes.
+OpenCode prefixes the regional inference profile itself (`us.` for `us-*` regions):
+
+| Catalog model (`anthropic/…`) | OpenCode id (`amazon-bedrock/…`)            | Bedrock request                                |
+| ----------------------------- | ------------------------------------------- | ---------------------------------------------- |
+| `claude-sonnet-4-6`           | `anthropic.claude-sonnet-4-6`               | `us.anthropic.claude-sonnet-4-6`               |
+| `claude-opus-4-7`             | `anthropic.claude-opus-4-7`                 | `us.anthropic.claude-opus-4-7`                 |
+| `claude-sonnet-5`             | `anthropic.claude-sonnet-5`                 | `us.anthropic.claude-sonnet-5`                 |
+| `claude-opus-4-6`             | `anthropic.claude-opus-4-6-v1`              | `us.anthropic.claude-opus-4-6-v1`              |
+| `claude-haiku-4-5`            | `anthropic.claude-haiku-4-5-20251001-v1:0`  | `us.anthropic.claude-haiku-4-5-20251001-v1:0`  |
+| `claude-sonnet-4-5`           | `anthropic.claude-sonnet-4-5-20250929-v1:0` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` |
+| `claude-opus-4-5`             | `anthropic.claude-opus-4-5-20251101-v1:0`   | `us.anthropic.claude-opus-4-5-20251101-v1:0`   |
+| any other `claude-*`          | `anthropic.<model>`                         | `us.anthropic.<model>`                         |
 
 Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Claude Code):
 
@@ -124,6 +142,26 @@ by default; the existing `openai/*` entries keep going to api.openai.com.
   run it.
 - Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
   empty values), then disable the model again under Settings → Models.
+
+### Model & harness allowlist
+
+`deploy/production.tfvars.json` pins what this deployment may run:
+
+- `harness_allowlist = ["opencode"]` — OpenCode is the only agent; the web UI hides the Agent picker
+  and the control plane rejects `harness: claude` on every path.
+- `model_allowlist` — the Bedrock-verified Claude models only (Sonnet 4.6, Opus 4.7, Sonnet 5).
+
+Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
+(`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
+`availableModels` / `availableHarnesses`, which is what the picker, Settings → Models and the
+automation form render; persisted preferences are narrowed to the allowlist on read. Session create,
+child spawn, automation create/update and queued-message dispatch all reject anything outside it
+(HTTP 400), so nothing reaches a sandbox without credentials. Empty lists mean "whole shared
+catalog", so both must stay set. To enable another model (e.g. after the Opus 4.8 Marketplace
+subscription), verify it against Bedrock first, then add its canonical id and `apply 2`.
+
+Azure OpenAI (GPT-6 Astra) is wired (see above) but not yet allowlisted: once the Azure deployment
+is validated, add `azure/gpt-6-astra` to `model_allowlist` — until then it stays hidden.
 
 ### Cloudflare API token (least privilege)
 
