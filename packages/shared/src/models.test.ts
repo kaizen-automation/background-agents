@@ -47,6 +47,8 @@ const OPENAI_MODELS = [
 
 const XAI_MODELS = ["xai/grok-4.5", "xai/grok-4.6", "xai/grok-build-0.1"] as const;
 
+const AZURE_MODELS = ["azure/gpt-6-astra"] as const;
+
 const ZEN_MODELS = [
   "opencode/kimi-k2.5",
   "opencode/kimi-k2.6",
@@ -137,6 +139,7 @@ describe("model utilities", () => {
       ...ANTHROPIC_MODELS,
       ...OPENAI_MODELS,
       ...XAI_MODELS,
+      ...AZURE_MODELS,
       ...ZEN_MODELS,
       ...GO_MODELS,
       ...ZAI_CODING_PLAN_MODELS,
@@ -294,6 +297,19 @@ describe("model utilities", () => {
     expect(getSubscriptionProviderForModel("xai/grok-4.6")).toBe("xai");
     expect(getSubscriptionProviderForModel("anthropic/claude-sonnet-4-6")).toBe("anthropic");
     expect(getSubscriptionProviderForModel("deepseek/deepseek-v4-pro")).toBeNull();
+    expect(getSubscriptionProviderForModel("azure/gpt-6-astra")).toBeNull();
+  });
+
+  it("routes the Azure OpenAI catalog entry to the azure provider, not openai", () => {
+    expect(extractProviderAndModel("azure/gpt-6-astra")).toEqual({
+      provider: "azure",
+      model: "gpt-6-astra",
+    });
+    expect(normalizeModelId("azure/gpt-6-astra")).toBe("azure/gpt-6-astra");
+    expect(normalizeModelId("gpt-6-astra")).toBe("openai/gpt-6-astra");
+    expect(getReasoningConfig("azure/gpt-6-astra")).toEqual(
+      getReasoningConfig("openai/gpt-6-astra")
+    );
   });
 
   it("rejects bare, malformed, and unknown billing model routes", () => {
@@ -444,6 +460,9 @@ describe("model utilities", () => {
       MODEL_OPTIONS.find((group) => group.category === "xAI / SuperGrok")?.models.map((m) => m.id)
     ).toEqual(XAI_MODELS);
     expect(
+      MODEL_OPTIONS.find((group) => group.category === "Azure OpenAI")?.models.map((m) => m.id)
+    ).toEqual(AZURE_MODELS);
+    expect(
       MODEL_OPTIONS.find((group) => group.category === "OpenCode Zen")?.models.map((m) => m.id)
     ).toEqual(ZEN_MODELS);
     expect(
@@ -459,6 +478,7 @@ describe("model utilities", () => {
     expect(DEFAULT_ENABLED_MODELS).toEqual([...ANTHROPIC_MODELS, ...OPENAI_MODELS]);
     for (const optInModel of [
       ...XAI_MODELS,
+      ...AZURE_MODELS,
       ...ZEN_MODELS,
       ...GO_MODELS,
       ...ZAI_CODING_PLAN_MODELS,

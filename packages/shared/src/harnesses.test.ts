@@ -75,6 +75,14 @@ describe("harnessSupportsProviderAuth", () => {
     expect(harnessSupportsProviderAuth("opencode", "xai", "provider_account")).toBe(true);
   });
 
+  it("runs Azure OpenAI on OpenCode with an API key only", () => {
+    expect(harnessSupportsProviderAuth("opencode", "azure", "api_key")).toBe(true);
+    expect(harnessSupportsProviderAuth("opencode", "azure", "provider_account")).toBe(false);
+    expect(harnessSupportsProviderAuth("claude", "azure", "api_key")).toBe(false);
+    expect(checkHarnessCompatibility("opencode", "azure/gpt-6-astra")).toBeNull();
+    expect(checkHarnessCompatibility("claude", "azure/gpt-6-astra")?.code).toBe("model");
+  });
+
   it("selects no auth mode for a provider the harness has no row for", () => {
     expect(harnessSupportsProviderAuth("claude", "openai", "provider_account")).toBe(false);
     expect(harnessSupportsProviderAuth("claude", "openai", "api_key")).toBe(false);

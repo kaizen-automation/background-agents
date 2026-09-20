@@ -65,6 +65,8 @@ OPTIONAL_SECRETS=(
   ANTHROPIC_API_KEY
   AWS_BEARER_TOKEN_BEDROCK
   AWS_REGION
+  AZURE_OPENAI_API_KEY
+  AZURE_OPENAI_RESOURCE_NAME
   MODAL_ENVIRONMENT
   MODAL_ENVIRONMENT_WEB_SUFFIX
   GOOGLE_CLIENT_ID
@@ -86,6 +88,8 @@ OPTIONAL_SECRETS=(
 NON_TF_SECRETS=(R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY)
 # The Claude harness needs exactly one of these model credentials.
 MODEL_CREDENTIAL_SECRETS=(ANTHROPIC_API_KEY AWS_BEARER_TOKEN_BEDROCK)
+# Azure OpenAI for the OpenCode harness: optional, but both or neither.
+AZURE_OPENAI_SECRETS=(AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE_NAME)
 
 log() { printf '[deploy] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
@@ -121,6 +125,7 @@ check_secret_names() {
   [[ -z "$empty" ]] || die "required Doppler secrets are empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}: $(tr '\n' ' ' <<<"$empty")"
   log "all ${#REQUIRED_SECRETS[@]} required secrets present and non-empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
   check_model_credential
+  check_azure_openai_credential
 }
 
 # Exactly one model credential, and Bedrock brings its region along.
@@ -140,6 +145,26 @@ check_model_credential() {
     log "model provider: Amazon Bedrock (Claude Code CLAUDE_CODE_USE_BEDROCK=1)"
   else
     log "model provider: Anthropic API"
+  fi
+}
+
+# Azure OpenAI is opt-in; a key without its resource name (or vice versa) cannot
+# reach any deployment and is rejected before Terraform sees it.
+check_azure_openai_credential() {
+  local set_names
+  set_names="$(doppler secrets --json $(doppler_args) |
+    jq -r --argjson names "$(printf '%s\n' "${AZURE_OPENAI_SECRETS[@]}" | jq -R . | jq -s .)" \
+      'to_entries | map(select((.key as $k | $names | index($k)) and (.value.computed // "" | gsub("\\s"; "") != ""))) | .[].key')"
+  local has_key=0 has_resource=0
+  grep -qx AZURE_OPENAI_API_KEY <<<"$set_names" && has_key=1
+  grep -qx AZURE_OPENAI_RESOURCE_NAME <<<"$set_names" && has_resource=1
+  if ((has_key != has_resource)); then
+    die "set both or neither of ${AZURE_OPENAI_SECRETS[*]} in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
+  fi
+  if ((has_key)); then
+    log "azure openai: configured (OpenCode harness, azure/* models)"
+  else
+    log "azure openai: not configured"
   fi
 }
 

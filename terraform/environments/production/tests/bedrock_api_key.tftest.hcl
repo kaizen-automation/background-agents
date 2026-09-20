@@ -62,6 +62,8 @@ run "a_bedrock_key_switches_sandboxes_to_bedrock" {
       CLAUDE_CODE_USE_BEDROCK  = "1"
       AWS_BEARER_TOKEN_BEDROCK = "test-bedrock-key"
       AWS_REGION               = "us-west-2"
+      AZURE_API_KEY            = ""
+      AZURE_RESOURCE_NAME      = ""
     }
     error_message = "A configured Bedrock key must inject the switch, the trimmed key and the region."
   }
@@ -83,7 +85,7 @@ run "a_region_without_a_key_stays_out_of_sandboxes" {
   }
 
   assert {
-    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "", CLAUDE_CODE_USE_BEDROCK = "", AWS_BEARER_TOKEN_BEDROCK = "", AWS_REGION = "" }
+    condition     = local.modal_llm_secret_values == { ANTHROPIC_API_KEY = "", CLAUDE_CODE_USE_BEDROCK = "", AWS_BEARER_TOKEN_BEDROCK = "", AWS_REGION = "", AZURE_API_KEY = "", AZURE_RESOURCE_NAME = "" }
     error_message = "A region alone must not enable Bedrock or reach sandboxes."
   }
 }
