@@ -44,6 +44,8 @@ file, fallback cache, or command-line argument ever carries a secret value.
 | `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1` |
 | `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                   |
 | `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                     |
+| `AZURE_OPENAI_API_KEY` (optional, with the next)                                   | Modal secret `llm-api-keys`                 | sandbox `AZURE_API_KEY` (OpenCode harness, `azure/*` models)     |
+| `AZURE_OPENAI_RESOURCE_NAME` (optional, with the previous)                         | Modal secret `llm-api-keys`                 | sandbox `AZURE_RESOURCE_NAME` (Azure OpenAI resource)            |
 | `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                                  |
 | `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                                         |
 | `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                                     |
@@ -93,6 +95,32 @@ Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Cla
 - Switching back to the Anthropic API: clear `AWS_BEARER_TOKEN_BEDROCK`, set `ANTHROPIC_API_KEY`,
   `apply`. The Modal secret keeps every name with an empty value so the old credential is reconciled
   away.
+
+### Model provider: Azure OpenAI (OpenCode harness)
+
+The OpenCode harness can run OpenAI models through the company's Azure OpenAI (Azure AI Foundry)
+resource instead of api.openai.com. OpenCode's built-in `azure` provider authenticates with
+`AZURE_API_KEY` and targets `https://<AZURE_RESOURCE_NAME>.openai.azure.com/`; the sandbox pins the
+resource name in the generated opencode.json (`provider.azure.options.resourceName`,
+`build_azure_provider_config` in `packages/sandbox-runtime/.../opencode_server.py`). Azure models
+live under their own catalog group (`azure/gpt-6-astra`, "Azure OpenAI" in Settings → Models), off
+by default; the existing `openai/*` entries keep going to api.openai.com.
+
+- Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
+  Keys and Endpoint) and `AZURE_OPENAI_RESOURCE_NAME` (the `<RESOURCE_NAME>` in
+  `https://<RESOURCE_NAME>.openai.azure.com/`). Both or neither; `check` enforces it, as does the
+  Terraform validation on `azure_openai_resource_name`. They map to `TF_VAR_azure_openai_api_key` /
+  `TF_VAR_azure_openai_resource_name` and reach only Modal sandboxes
+  (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's Bedrock/Anthropic
+  credential.
+- **Deployment name must equal the model name.** OpenCode addresses Azure deployments by the model
+  id, so before enabling `azure/gpt-6-astra` create a deployment named exactly `gpt-6-astra` (model
+  `gpt-6-astra`) in the Foundry resource. Any further `azure/<model>` catalog entry needs a
+  same-named deployment as well.
+- Then enable the model: Settings → Models → "Azure OpenAI" → GPT-6 Astra. Sessions pick it as
+  `azure/gpt-6-astra` on the OpenCode harness; the Claude harness cannot run it.
+- Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
+  empty values), then disable the model again under Settings → Models.
 
 ### Cloudflare API token (least privilege)
 

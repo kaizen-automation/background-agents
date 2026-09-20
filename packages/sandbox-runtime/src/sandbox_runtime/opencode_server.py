@@ -28,6 +28,23 @@ _LOG_FORWARD_STREAM_LIMIT_BYTES = 1024 * 1024
 AGENT_TOOLS_GATED_ON_ENV = {"slack-notify.js": "AGENT_SLACK_NOTIFY_ENABLED"}
 AGENT_TOOLS_REQUIRING_REPOSITORY: set[str] = set()
 
+AZURE_PROVIDER_ID = "azure"
+AZURE_RESOURCE_NAME_ENV = "AZURE_RESOURCE_NAME"
+
+
+def build_azure_provider_config(env: Mapping[str, str]) -> dict[str, Any]:
+    """OpenCode ``provider.azure`` block for Azure OpenAI (Azure AI Foundry).
+
+    OpenCode reads ``AZURE_API_KEY`` from the environment; the resource name
+    (``https://<resource>.openai.azure.com``) is pinned via ``options.resourceName``
+    rather than left to env discovery. The Azure deployment name must equal the
+    model id.
+    """
+    resource_name = env.get(AZURE_RESOURCE_NAME_ENV, "").strip()
+    if not resource_name:
+        return {}
+    return {"options": {"resourceName": resource_name}}
+
 
 def resolve_opencode_global_config_dir() -> Path:
     """Resolve OpenCode's global config directory using its xdg-basedir rules."""
@@ -413,6 +430,8 @@ class OpenCodeServer:
                 }
             },
         }
+        if self.provider == AZURE_PROVIDER_ID:
+            opencode_config["provider"][AZURE_PROVIDER_ID] = build_azure_provider_config(os.environ)
 
         # Inject MCP servers
         mcp_servers = self._resolve_mcp_servers()

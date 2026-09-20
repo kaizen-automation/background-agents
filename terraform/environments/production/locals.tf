@@ -69,6 +69,8 @@ locals {
     CLAUDE_CODE_USE_BEDROCK  = local.bedrock_enabled ? "1" : ""
     AWS_BEARER_TOKEN_BEDROCK = trimspace(var.aws_bearer_token_bedrock)
     AWS_REGION               = local.bedrock_enabled ? trimspace(var.aws_region) : ""
+    AZURE_API_KEY            = trimspace(var.azure_openai_api_key)
+    AZURE_RESOURCE_NAME      = trimspace(var.azure_openai_resource_name)
   }
 
   # OpenComputer reads its sandbox credentials from the control plane rather than

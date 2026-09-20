@@ -853,7 +853,7 @@ class OpenCodePromptStream:
                 "modelID": model_id,
             }
 
-            if reasoning_effort and provider_id in {"anthropic", "openai", "xai"}:
+            if reasoning_effort and provider_id in {"anthropic", "openai", "azure", "xai"}:
                 request_body["variant"] = reasoning_effort
 
             request_body["model"] = model_spec
