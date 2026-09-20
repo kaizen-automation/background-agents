@@ -13,7 +13,7 @@
 #
 # Commands:
 #   check            verify tooling and that every required Doppler secret exists (names only)
-#   bootstrap        create the R2 state bucket (idempotent) and run `terraform init`
+#   bootstrap        verify the pre-created R2 state bucket via the S3 credentials, then `terraform init`
 #   init             `terraform init -reconfigure` against the R2 backend
 #   plan  [phase]    `terraform plan`  (phase 1 = bindings off, phase 2 = bindings on; default 2)
 #   apply [phase]    `terraform apply`
@@ -209,25 +209,19 @@ build_workers() {
       -w @open-inspect/github-bot -w @open-inspect/linear-bot) >/dev/null
 }
 
-# Cloudflare REST call; the token travels in a header from the environment only.
-cf_api() {
-  local method="$1" path="$2"; shift 2
-  curl -sS -o /dev/null -w '%{http_code}' -X "$method" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' \
-    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}${path}" "$@"
-}
-
+# The state bucket is provisioned out-of-band and the Cloudflare token holds no
+# R2 permission, so it is checked through the bucket-scoped S3 credentials.
 cmd_bootstrap() {
-  local status
-  status="$(cf_api GET "/r2/buckets/${STATE_BUCKET}")"
-  case "$status" in
-    200) log "R2 bucket ${STATE_BUCKET} already exists" ;;
-    404)
-      log "creating R2 bucket ${STATE_BUCKET}"
-      status="$(cf_api POST /r2/buckets --data "{\"name\":\"${STATE_BUCKET}\",\"locationHint\":\"enam\"}")"
-      [[ "$status" == 200 ]] || die "R2 bucket create failed (HTTP ${status})" ;;
-    *) die "R2 bucket lookup failed (HTTP ${status}); check CLOUDFLARE_API_TOKEN scopes" ;;
-  esac
+  log "checking S3 access to R2 bucket ${STATE_BUCKET}"
+  if ! STATE_BUCKET="$STATE_BUCKET" uv run --quiet --with boto3 python - <<'PY'
+import os, boto3
+boto3.client("s3", endpoint_url=os.environ["AWS_ENDPOINT_URL_S3"], region_name="auto").head_bucket(
+    Bucket=os.environ["STATE_BUCKET"]
+)
+PY
+  then
+    die "cannot access R2 bucket ${STATE_BUCKET} with R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY"
+  fi
   cmd_init
 }
 
