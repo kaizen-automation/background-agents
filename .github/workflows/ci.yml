@@ -120,6 +120,9 @@ jobs:
       - name: Test user merge CLI
         run: npm run test:user-merge-cli
 
+      - name: Test integrations seed CLI
+        run: npm run test:integrations-seed
+
       - name: Test Cloudflare logs CLI
         run: npm run test:cf-logs-cli
 

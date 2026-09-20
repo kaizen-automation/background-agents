@@ -58,6 +58,7 @@ file, fallback cache, or command-line argument ever carries a secret value.
 | `REPO_SECRETS_ENCRYPTION_KEY`                                                      | Worker secret                               | encrypts Settings → Secrets in D1                                |
 | `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`                                                 | Worker secret                               | encrypts provider accounts — never change                        |
 | `MODAL_API_SECRET`                                                                 | Worker secret + Modal secret `internal-api` | control plane ↔ Modal auth                                       |
+| `BRAINTRUST_API_KEY`, `DD_API_KEY` + `DD_APPLICATION_KEY`, `PHONIC_API_KEY` (opt.) | `integrations:seed` → D1 (encrypted)        | agent MCP servers + Settings → Secrets (see below)               |
 
 Generated secrets are 32 random bytes, base64 (`openssl rand -base64 32`), created straight into
 Doppler with `doppler secrets set NAME="$(openssl rand -base64 32)" --silent`.
@@ -202,7 +203,36 @@ admission). Installed with **Only select repositories**. Webhook inactive (GitHu
 Only the model credential (`AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION`, from a Bedrock-only IAM user
 with an AWS Budgets alert — or `ANTHROPIC_API_KEY` from a capped workspace), a per-session sandbox
 token, and a short-lived GitHub installation token. Production application credentials are never
-present unless someone deliberately adds them under Settings → Secrets.
+present unless someone deliberately adds them under Settings → Secrets — or seeds them from Doppler
+with `integrations:seed` (below), which is the same store.
+
+### Agent integrations: Braintrust, Datadog, Phonic
+
+MCP servers and agent-facing secrets live in D1 (Settings → MCP Servers / Secrets), not in
+Terraform, so Doppler cannot reach them through `apply`. `scripts/seed-integrations.ts` closes that
+gap: run under the wrapper it reads the provider keys from Doppler, encrypts them locally with
+`REPO_SECRETS_ENCRYPTION_KEY` (the control plane's own key) and upserts the rows over
+`wrangler d1 execute --remote`, so only ciphertext leaves the machine and no value is pasted into a
+browser or chat.
+
+| Doppler secret                                                            | Seeds                                                                                                                                                                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BRAINTRUST_API_KEY` (+ opt. `BRAINTRUST_MCP_URL`)                        | remote MCP `braintrust` → `https://api.braintrust.dev/mcp` (`Authorization: Bearer …`); global secret `BRAINTRUST_API_KEY` for the `bt` CLI / SDK                                               |
+| `DD_API_KEY` + `DD_APPLICATION_KEY` (+ opt. `DD_SITE`, `DD_MCP_TOOLSETS`) | remote MCP `datadog` → `https://mcp.<DD_SITE>/v1/mcp?toolsets=<DD_MCP_TOOLSETS>` (defaults `datadoghq.com`, `all`); headers `DD_API_KEY`, `DD_APPLICATION_KEY`. Not exposed as a sandbox secret |
+| `PHONIC_API_KEY`                                                          | remote MCP `phonic-docs` → `https://docs.phonic.co/_mcp/server` (no auth); global secret `PHONIC_API_KEY` for the [`phonic`](https://github.com/Phonic-Co/phonic-node) SDK                      |
+
+```bash
+doppler secrets set BRAINTRUST_API_KEY=... DD_API_KEY=... DD_APPLICATION_KEY=... PHONIC_API_KEY=... --silent
+deploy/doppler/deploy.sh run npm run integrations:seed -- --database <d1_database_name>            # plan (names only)
+deploy/doppler/deploy.sh run npm run integrations:seed -- --database <d1_database_name> --execute  # apply
+```
+
+Integrations whose secrets are absent are skipped; a half-set Datadog pair is an error. Re-running
+rotates the stored credentials in place (matched by MCP server name / secret key) and keeps any
+`enabled` / repository-scope edits made in Settings. Use minimally scoped keys: a Datadog service
+account with read-only scopes, a Braintrust key restricted to the projects agents should see. The
+seed only handles credentials and MCP wiring; a repository whose agents should _call_ Phonic still
+declares the `phonic` npm package in its own dependencies or `.openinspect/setup.sh`.
 
 ## Deploying
 
