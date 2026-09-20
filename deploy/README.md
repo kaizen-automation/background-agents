@@ -118,7 +118,8 @@ Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Cla
 
 - `harness_allowlist = ["opencode"]` — OpenCode is the only agent; the web UI hides the Agent picker
   and the control plane rejects `harness: claude` on every path.
-- `model_allowlist` — the Bedrock-verified Claude models only (Sonnet 4.6, Opus 4.7, Sonnet 5).
+- `model_allowlist` — the Bedrock-verified Claude models (Sonnet 4.6, Opus 4.7, Sonnet 5) plus
+  `azure/gpt-6-astra` (Azure OpenAI resource `kaizen-openai`, deployment `gpt-6-astra`).
 
 Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
 (`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
@@ -129,8 +130,10 @@ child spawn, automation create/update and queued-message dispatch all reject any
 catalog", so both must stay set. To enable another model (e.g. after the Opus 4.8 Marketplace
 subscription), verify it against Bedrock first, then add its canonical id and `apply 2`.
 
-Azure OpenAI (GPT-6 Astra) is a separate follow-up: when its provider wiring lands and the Azure
-deployment is validated, add `azure/…` ids to `model_allowlist` — until then it stays hidden.
+`azure/gpt-6-astra` is `enabledByDefault: false` in the shared catalog, so after `apply 2` it still
+has to be switched on once under Settings → Models → "Azure OpenAI" before it appears in the picker.
+It requires `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_RESOURCE_NAME` in Doppler (see "Model provider:
+Azure OpenAI").
 
 ### Cloudflare API token (least privilege)
 
