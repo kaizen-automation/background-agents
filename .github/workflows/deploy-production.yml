@@ -1,0 +1,115 @@
+name: Deploy Production (Kaizen)
+
+# Kaizen production deployment from `main`. Secrets come from Doppler
+# (project open-inspect, config prd) via deploy/doppler/deploy.sh; the only
+# GitHub secret is DOPPLER_TOKEN. Upstream terraform.yml also triggers on `main` but
+# needs ~20 individual GitHub secrets; those stay unset, so it skips itself.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/**"
+      - "terraform/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-production.yml"
+      - "!**/*.md"
+  pull_request:
+    branches: [main]
+    paths:
+      - "deploy/**"
+      - "terraform/**"
+      - "scripts/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-production.yml"
+      - "!**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never interrupt a terraform apply
+
+env:
+  TF_VERSION: "1.14.8"
+  DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+
+jobs:
+  check-secrets:
+    name: Check Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    steps:
+      - name: Check if DOPPLER_TOKEN is configured
+        id: check
+        run: |
+          # Fork PRs cannot read secrets, and a fresh fork has no DOPPLER_TOKEN yet;
+          # skip plan/apply with a notice instead of failing inside deploy.sh.
+          if [ -n "$DOPPLER_TOKEN" ]; then
+            echo "has-secrets=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-secrets=false" >> $GITHUB_OUTPUT
+            echo "::notice::Deploy plan/apply skipped - DOPPLER_TOKEN secret not configured. See deploy/README.md."
+          fi
+
+  deploy:
+    name: Plan / Apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [check-secrets]
+    if: needs.check-secrets.outputs.has-secrets == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22.13.0"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Install Modal and Python dependencies
+        run: uv sync --frozen
+        working-directory: packages/modal-infra
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v4
+
+      - name: Check Doppler secrets
+        run: deploy/doppler/deploy.sh check
+
+      - name: Terraform Init
+        run: deploy/doppler/deploy.sh init
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: deploy/doppler/deploy.sh plan 2 -no-color -lock=false
+
+      - name: Terraform Apply
+        if: github.event_name != 'pull_request'
+        run: deploy/doppler/deploy.sh apply 2 -no-color -auto-approve
+
+      - name: Terraform Output
+        if: github.event_name != 'pull_request'
+        run: deploy/doppler/deploy.sh output -no-color

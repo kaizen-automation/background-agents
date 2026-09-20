@@ -215,6 +215,11 @@ app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node` 
 Modal CLI come from the repository's own dependencies (`npm install`, and `uv sync --frozen` in
 `packages/modal-infra`).
 
+After the initial bootstrap, `.github/workflows/deploy-production.yml` automates later changes: pull
+requests into `main` run `deploy.sh plan`, and pushes to `main` run
+`deploy.sh apply 2 -auto-approve`. It needs a single GitHub Actions secret, `DOPPLER_TOKEN` (the
+same read-only service token used above); everything else is read from Doppler at run time.
+
 After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 
 ```bash
