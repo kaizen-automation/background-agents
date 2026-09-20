@@ -9,7 +9,7 @@ import {
   type ScmGlobalConfig,
 } from "@open-inspect/shared/types/integrations";
 import type { EnrichedRepository } from "@open-inspect/shared/types/repository-catalog";
-import { APP_NAME_SLUG } from "@/lib/site-config";
+import { APP_NAME, APP_NAME_SLUG } from "@/lib/site-config";
 import { IntegrationSettingsSkeleton } from "./integrations/integration-settings-skeleton";
 import { SettingsCardSection } from "./settings-card-section";
 import {
@@ -40,7 +40,14 @@ import {
 import { useCurrentUserAuthorization } from "@/hooks/use-current-user-authorization";
 
 const DEFAULT_ALWAYS_USE_DRAFT_MODE = false;
+const DEFAULT_OPEN_PULL_REQUESTS_AS_APP = false;
 const DEFAULT_PULL_REQUEST_LABEL = "";
+
+const SCM_SETTINGS_KEYS = new Set([
+  "alwaysUseDraftMode",
+  "openPullRequestsAsApp",
+  "pullRequestLabel",
+]);
 
 interface GlobalResponse {
   settings: ScmGlobalConfig | null;
@@ -65,13 +72,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isScmSettings(value: unknown): value is ScmSettings {
   if (!isRecord(value)) return false;
-  if (
-    Object.keys(value).some((key) => key !== "alwaysUseDraftMode" && key !== "pullRequestLabel")
-  ) {
+  if (Object.keys(value).some((key) => !SCM_SETTINGS_KEYS.has(key))) {
     return false;
   }
   return (
     (value.alwaysUseDraftMode === undefined || typeof value.alwaysUseDraftMode === "boolean") &&
+    (value.openPullRequestsAsApp === undefined ||
+      typeof value.openPullRequestsAsApp === "boolean") &&
     (value.pullRequestLabel === undefined || typeof value.pullRequestLabel === "string")
   );
 }
@@ -173,6 +180,9 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
   const [alwaysUseDraftMode, setAlwaysUseDraftMode] = useState(
     settings?.defaults?.alwaysUseDraftMode ?? DEFAULT_ALWAYS_USE_DRAFT_MODE
   );
+  const [openPullRequestsAsApp, setOpenPullRequestsAsApp] = useState(
+    settings?.defaults?.openPullRequestsAsApp ?? DEFAULT_OPEN_PULL_REQUESTS_AS_APP
+  );
   const [pullRequestLabel, setPullRequestLabel] = useState(
     settings?.defaults?.pullRequestLabel ?? DEFAULT_PULL_REQUEST_LABEL
   );
@@ -184,6 +194,9 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
     if (settings !== undefined && !dirty) {
       setAlwaysUseDraftMode(
         settings?.defaults?.alwaysUseDraftMode ?? DEFAULT_ALWAYS_USE_DRAFT_MODE
+      );
+      setOpenPullRequestsAsApp(
+        settings?.defaults?.openPullRequestsAsApp ?? DEFAULT_OPEN_PULL_REQUESTS_AS_APP
       );
       setPullRequestLabel(settings?.defaults?.pullRequestLabel ?? DEFAULT_PULL_REQUEST_LABEL);
     }
@@ -200,6 +213,7 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
       if (res.ok) {
         await mutate(SCM_GLOBAL_SETTINGS_KEY);
         setAlwaysUseDraftMode(DEFAULT_ALWAYS_USE_DRAFT_MODE);
+        setOpenPullRequestsAsApp(DEFAULT_OPEN_PULL_REQUESTS_AS_APP);
         setPullRequestLabel(DEFAULT_PULL_REQUEST_LABEL);
         setDirty(false);
         toast.success("Settings reset to defaults.");
@@ -220,6 +234,7 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
     const normalizedLabel = pullRequestLabel.trim();
     const defaults: ScmSettings = {
       alwaysUseDraftMode,
+      ...(openPullRequestsAsApp ? { openPullRequestsAsApp } : {}),
       ...(normalizedLabel ? { pullRequestLabel: normalizedLabel } : {}),
     };
     const body: ScmGlobalConfig = { defaults };
@@ -265,6 +280,27 @@ function GlobalSettingsSection({ settings }: { settings: ScmGlobalConfig | null 
             checked={alwaysUseDraftMode}
             onChange={() => {
               setAlwaysUseDraftMode(!alwaysUseDraftMode);
+              setDirty(true);
+            }}
+            className="rounded border-border"
+          />
+        </label>
+      </div>
+
+      <div className="mb-4">
+        <label className="flex items-center justify-between px-3 py-2 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition text-sm">
+          <div>
+            <span className="font-medium text-foreground">Open pull requests as {APP_NAME}</span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Author pull and merge requests as the {APP_NAME} app instead of the prompting user, so
+              users can review and approve their own sessions&apos; changes
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={openPullRequestsAsApp}
+            onChange={() => {
+              setOpenPullRequestsAsApp(!openPullRequestsAsApp);
               setDirty(true);
             }}
             className="rounded border-border"

@@ -114,9 +114,19 @@ describe("SCM settings schemas", () => {
   it("parses and normalizes valid global and repo settings", () => {
     expect(
       scmGlobalConfigSchema.parse({
-        defaults: { alwaysUseDraftMode: true, pullRequestLabel: "  agent  " },
+        defaults: {
+          alwaysUseDraftMode: true,
+          openPullRequestsAsApp: true,
+          pullRequestLabel: "  agent  ",
+        },
       })
-    ).toEqual({ defaults: { alwaysUseDraftMode: true, pullRequestLabel: "agent" } });
+    ).toEqual({
+      defaults: {
+        alwaysUseDraftMode: true,
+        openPullRequestsAsApp: true,
+        pullRequestLabel: "agent",
+      },
+    });
     expect(scmSettingsSchema.parse({ alwaysUseDraftMode: false, pullRequestLabel: "   " })).toEqual(
       { alwaysUseDraftMode: false }
     );
@@ -128,6 +138,7 @@ describe("SCM settings schemas", () => {
       false
     );
     expect(scmSettingsSchema.safeParse({ alwaysUseDraftMode: "yes" }).success).toBe(false);
+    expect(scmSettingsSchema.safeParse({ openPullRequestsAsApp: "yes" }).success).toBe(false);
     expect(scmSettingsSchema.safeParse({ pullRequestLabel: "release,agent" }).success).toBe(false);
   });
 });

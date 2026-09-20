@@ -407,6 +407,37 @@ describe("SessionPullRequestService", () => {
     );
   });
 
+  it("creates PR with app auth when openPullRequestsAsApp is enabled, ignoring user OAuth", async () => {
+    harness = createTestHarness({ scmSettings: { openPullRequestsAsApp: true } });
+    const resolvePromptingAuth = vi.fn(async () => ({
+      auth: { authType: "oauth" as const, token: "user-token" },
+    }));
+
+    const result = await harness.service.createPullRequest(createInput({ resolvePromptingAuth }));
+
+    expect(result).toMatchObject({ kind: "created", prNumber: 42 });
+    expect(resolvePromptingAuth).not.toHaveBeenCalled();
+    expect(harness.provider.createPullRequest).toHaveBeenCalledWith(
+      { authType: "app", token: "app-token" },
+      expect.anything()
+    );
+  });
+
+  it("prefers user OAuth when openPullRequestsAsApp is explicitly disabled", async () => {
+    harness = createTestHarness({ scmSettings: { openPullRequestsAsApp: false } });
+    const resolvePromptingAuth = vi.fn(async () => ({
+      auth: { authType: "oauth" as const, token: "user-token" },
+    }));
+
+    await harness.service.createPullRequest(createInput({ resolvePromptingAuth }));
+
+    expect(resolvePromptingAuth).toHaveBeenCalledTimes(1);
+    expect(harness.provider.createPullRequest).toHaveBeenCalledWith(
+      { authType: "oauth", token: "user-token" },
+      expect.anything()
+    );
+  });
+
   it("fails before push when SCM policy cannot be resolved", async () => {
     vi.mocked(harness.deps.resolveScmSettings).mockRejectedValueOnce(new Error("D1 unavailable"));
 

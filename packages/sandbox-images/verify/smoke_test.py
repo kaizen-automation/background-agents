@@ -264,6 +264,8 @@ def inspect_image(plan: dict[str, Any], tools: dict[str, Any], *, services: bool
         ]
     )
     probe.run(["gh", "--version"])
+    probe.run(["doppler", "--version"])
+    probe.run(["psql", "--version"])
     if probe.run(["git", "config", "--system", "credential.useHttpPath"]) != "true":
         raise RuntimeError("SCM credential helper is not repository-path scoped")
     probe.run(

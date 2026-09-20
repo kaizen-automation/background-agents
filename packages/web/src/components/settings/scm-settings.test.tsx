@@ -111,7 +111,7 @@ describe("ScmSettingsPage", () => {
     const user = userEvent.setup();
     const { rerender } = render(<ScmSettingsPage />);
 
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Always use draft mode/ })).not.toBeChecked();
     expect(
       screen.getByRole("combobox", { name: "Draft mode override for acme/web" })
     ).toHaveTextContent("Override: ready unless requested");
@@ -123,13 +123,13 @@ describe("ScmSettingsPage", () => {
     rerender(<ScmSettingsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("checkbox")).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: /Always use draft mode/ })).toBeChecked();
       expect(
         screen.getByRole("combobox", { name: "Draft mode override for acme/web" })
       ).toHaveTextContent("Override: always draft");
     });
 
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox", { name: /Always use draft mode/ }));
     await user.click(screen.getByRole("combobox", { name: "Draft mode override for acme/web" }));
     await user.click(
       await screen.findByRole("option", { name: "Override: ready unless requested" })
@@ -141,7 +141,7 @@ describe("ScmSettingsPage", () => {
     };
     rerender(<ScmSettingsPage />);
 
-    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Always use draft mode/ })).not.toBeChecked();
     expect(
       screen.getByRole("combobox", { name: "Draft mode override for acme/web" })
     ).toHaveTextContent("Override: ready unless requested");
@@ -153,7 +153,9 @@ describe("ScmSettingsPage", () => {
     render(<ScmSettingsPage />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load source control settings");
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /Always use draft mode/ })
+    ).not.toBeInTheDocument();
   });
 
   it("does not render editable controls for an unexpected settings response", () => {
@@ -164,7 +166,9 @@ describe("ScmSettingsPage", () => {
     render(<ScmSettingsPage />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load source control settings");
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /Always use draft mode/ })
+    ).not.toBeInTheDocument();
   });
 
   it("renders global and repository label settings", () => {
@@ -212,6 +216,25 @@ describe("ScmSettingsPage", () => {
           settings: {
             defaults: { alwaysUseDraftMode: false, pullRequestLabel: "generated" },
           },
+        }),
+      })
+    );
+  });
+
+  it("saves the open-pull-requests-as-app default when enabled", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) } as Response);
+    render(<ScmSettingsPage />);
+
+    await user.click(screen.getByRole("checkbox", { name: /Open pull requests as/ }));
+    await user.click(screen.getAllByRole("button", { name: "Save" })[0]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/scm-settings",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          settings: { defaults: { alwaysUseDraftMode: false, openPullRequestsAsApp: true } },
         }),
       })
     );
