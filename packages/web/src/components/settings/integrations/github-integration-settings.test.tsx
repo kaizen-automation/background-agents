@@ -12,6 +12,7 @@ import {
   type GitHubGlobalConfig,
 } from "@open-inspect/shared/types/integrations";
 import { GitHubIntegrationSettings } from "./github-integration-settings";
+import { APP_NAME } from "@/lib/site-config";
 
 vi.mock("@/hooks/use-current-user-authorization", () => ({
   useCurrentUserAuthorization: () => ({ hasPermission: () => true }),
@@ -169,7 +170,7 @@ describe("GitHubIntegrationSettings", () => {
       "true"
     );
     expect(
-      screen.getByText(/reviews from the configured Open Inspect App, regardless of workflow/i)
+      screen.getByText(`Allow reviews from the configured ${APP_NAME} App, regardless of workflow.`)
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("switch", { name: "Enable Autofix" }));

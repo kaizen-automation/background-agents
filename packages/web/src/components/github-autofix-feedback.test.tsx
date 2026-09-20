@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { afterEach, describe, expect, it } from "vitest";
 import type { GitHubAutofixFeedback } from "@/lib/github-autofix-feedback";
+import { APP_NAME } from "@/lib/site-config";
 import { GitHubAutofixFeedbackCard } from "./github-autofix-feedback";
 
 expect.extend(matchers);
@@ -278,7 +279,7 @@ describe("GitHubAutofixFeedbackCard", () => {
     });
     await user.click(button);
     expect(button).toHaveAttribute("aria-controls");
-    expect(screen.getByText("Diff context truncated by Open Inspect")).toBeInTheDocument();
+    expect(screen.getByText(`Diff context truncated by ${APP_NAME}`)).toBeInTheDocument();
   });
 
   it("renders large comment collections in bounded batches", async () => {

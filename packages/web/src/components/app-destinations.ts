@@ -1,6 +1,7 @@
 import { AutomationsIcon, DataControlsIcon, SettingsIcon } from "@/components/ui/icons";
 import type { PermissionId } from "@open-inspect/shared/rbac";
 import type { ComponentType } from "react";
+import { APP_NAME } from "@/lib/site-config";
 
 export interface AppDestination {
   label: string;
@@ -12,7 +13,7 @@ export interface AppDestination {
 
 export const SETTINGS_DESTINATION = {
   label: "Settings",
-  description: "Configure Open Inspect",
+  description: `Configure ${APP_NAME}`,
   href: "/settings",
   icon: SettingsIcon,
 } as const satisfies AppDestination;

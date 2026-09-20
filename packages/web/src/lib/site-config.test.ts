@@ -39,6 +39,12 @@ describe("site-config", () => {
     expect(APP_NAME).toBe("Acme Bot");
   });
 
+  it("derives APP_NAME_SLUG from NEXT_PUBLIC_APP_NAME", async () => {
+    process.env.NEXT_PUBLIC_APP_NAME = "Kaizen Code";
+    const { APP_NAME_SLUG } = await import("./site-config");
+    expect(APP_NAME_SLUG).toBe("kaizen-code");
+  });
+
   it("trims surrounding whitespace from NEXT_PUBLIC_APP_NAME", async () => {
     process.env.NEXT_PUBLIC_APP_NAME = "  Acme Bot  ";
     const { APP_NAME } = await import("./site-config");

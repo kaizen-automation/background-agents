@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SubscriptionProviderIcon } from "@/components/subscription-provider-icon";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { APP_NAME } from "@/lib/site-config";
 
 export type ProviderAuthorizationCodeTarget =
   | { provider: "anthropic"; operation: "create" }
@@ -31,8 +32,7 @@ type ConnectedAuthorization = Extract<
   { status: "connected" }
 >;
 
-export const ANTHROPIC_CREDENTIAL_ROTATION_WARNING =
-  "Sessions that already received this credential keep it until their sandbox exits. Reconnecting rotates what Open Inspect stores; it does not revoke the token at Anthropic.";
+export const ANTHROPIC_CREDENTIAL_ROTATION_WARNING = `Sessions that already received this credential keep it until their sandbox exits. Reconnecting rotates what ${APP_NAME} stores; it does not revoke the token at Anthropic.`;
 
 const PROVIDER_CONTENT = {
   anthropic: {

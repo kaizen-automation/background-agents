@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckIcon, CopyIcon } from "@/components/ui/icons";
 import { SubscriptionProviderIcon } from "@/components/subscription-provider-icon";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { APP_NAME } from "@/lib/site-config";
 
 export const CHATGPT_DEVICE_AUTHORIZATION_SETTINGS_URL =
   "https://chatgpt.com/#settings/Security:~:text=Enable%20device%20code%20authorization%20for%20Codex";
@@ -158,7 +159,7 @@ export function ProviderDeviceAuthorizationDialog({
           {target.provider === "xai" && (
             <AuthorizationStep number={3} title="Continue in xAI to finish approval.">
               <p className="text-sm text-muted-foreground">
-                Keep this dialog open while Open-Inspect waits for authorization.
+                Keep this dialog open while {APP_NAME} waits for authorization.
               </p>
             </AuthorizationStep>
           )}
