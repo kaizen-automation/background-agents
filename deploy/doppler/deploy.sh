@@ -109,7 +109,13 @@ check_secret_names() {
     grep -qx "$s" <<<"$names" || missing+=("$s")
   done
   ((${#missing[@]} == 0)) || die "missing Doppler secrets in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}: ${missing[*]}"
-  log "all ${#REQUIRED_SECRETS[@]} required secrets present in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
+  # Empty placeholders: values are inspected by jq in-process and only names are printed.
+  local empty
+  empty="$(doppler secrets --json $(doppler_args) |
+    jq -r --argjson req "$(printf '%s\n' "${REQUIRED_SECRETS[@]}" | jq -R . | jq -s .)" \
+      'to_entries | map(select((.key as $k | $req | index($k)) and (.value.computed // "") == "")) | .[].key')"
+  [[ -z "$empty" ]] || die "required Doppler secrets are empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}: $(tr '\n' ' ' <<<"$empty")"
+  log "all ${#REQUIRED_SECRETS[@]} required secrets present and non-empty in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
 }
 
 # Runs inside `doppler run`: the Doppler secrets are in the environment under
