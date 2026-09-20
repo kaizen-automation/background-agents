@@ -21,6 +21,7 @@ from ..child_activity import (
 )
 from ..message_attribution import AssistantMessageDisposition, MessageAttribution
 from ..opencode_identifier import OpenCodeIdentifier
+from .bedrock import opencode_model_target
 from .opencode_client import (
     SSEConnectionError,
     SSEInactivityTimeoutError,
@@ -848,9 +849,10 @@ class OpenCodePromptStream:
                 provider_id, model_id = model.split("/", 1)
             else:
                 provider_id, model_id = "anthropic", model
+            target_provider_id, target_model_id = opencode_model_target(provider_id, model_id)
             model_spec: dict[str, Any] = {
-                "providerID": provider_id,
-                "modelID": model_id,
+                "providerID": target_provider_id,
+                "modelID": target_model_id,
             }
 
             if reasoning_effort and provider_id in {"anthropic", "openai", "xai"}:
