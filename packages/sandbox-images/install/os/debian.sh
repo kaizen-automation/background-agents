@@ -11,8 +11,10 @@ apt-get install -y --no-install-recommends git curl build-essential ca-certifica
   passwd adduser sysvinit-utils procps util-linux xz-utils ffmpeg xvfb fluxbox x11vnc \
   websockify novnc libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
   libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 "$audio_library" \
-  libpango-1.0-0 libcairo2
+  libpango-1.0-0 libcairo2 postgresql-client
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /usr/share/keyrings/githubcli-archive-keyring.gpg
 printf '%s\n' 'deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' > /etc/apt/sources.list.d/github-cli.list
+curl -fsSL --retry 3 --tlsv1.2 --proto '=https' https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+printf '%s\n' 'deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main' > /etc/apt/sources.list.d/doppler-cli.list
 apt-get update
-apt-get install -y --no-install-recommends gh
+apt-get install -y --no-install-recommends gh doppler

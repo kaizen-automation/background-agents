@@ -362,18 +362,15 @@ export class SessionPullRequestService {
         };
       }
 
-      // Resolve user OAuth at the last possible moment so branch work cannot
-      // consume most of a short-lived token's remaining lifetime.
-      const authResolution = await input.resolvePromptingAuth();
-      if ("error" in authResolution) {
-        return { kind: "error", status: authResolution.status, error: authResolution.error };
+      const prAuth = await this.resolvePullRequestAuth(scmSettings, input, appAuth);
+      if ("error" in prAuth) {
+        return { kind: "error", status: prAuth.status, error: prAuth.error };
       }
-      const prAuth = authResolution.auth ?? appAuth;
 
       const fullBody =
         input.body + `\n\n---\n*Created with [${this.deps.appName}](${input.sessionUrl})*`;
 
-      const prResult = await this.deps.sourceControlProvider.createPullRequest(prAuth, {
+      const prResult = await this.deps.sourceControlProvider.createPullRequest(prAuth.auth, {
         repository: repoInfo,
         title: input.title,
         body: fullBody,
@@ -462,6 +459,28 @@ export class SessionPullRequestService {
     } finally {
       this.deps.claims.release(targetRepo);
     }
+  }
+
+  /**
+   * Pick the identity that opens the PR. With `openPullRequestsAsApp` the app
+   * installation is used unconditionally; otherwise the prompting user's OAuth
+   * is preferred and the app is the fallback. User OAuth is resolved at the
+   * last possible moment so branch work cannot consume most of a short-lived
+   * token's remaining lifetime.
+   */
+  private async resolvePullRequestAuth(
+    scmSettings: ScmSettings,
+    input: CreatePullRequestInput,
+    appAuth: SourceControlAuthContext
+  ): Promise<{ auth: SourceControlAuthContext } | { error: string; status: number }> {
+    if (scmSettings.openPullRequestsAsApp === true) {
+      return { auth: appAuth };
+    }
+    const authResolution = await input.resolvePromptingAuth();
+    if ("error" in authResolution) {
+      return authResolution;
+    }
+    return { auth: authResolution.auth ?? appAuth };
   }
 
   /**

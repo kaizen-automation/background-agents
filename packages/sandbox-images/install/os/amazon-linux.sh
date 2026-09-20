@@ -8,9 +8,11 @@ dnf install -y dnf-plugins-core git gcc gcc-c++ make ca-certificates openssh-cli
   pkgconf-pkg-config openssl-devel libjpeg-turbo-devel zlib-devel libX11-devel libXext-devel libXft-devel \
   libXinerama-devel libXpm-devel libXrandr-devel libXtst-devel libXfixes-devel libXdamage-devel \
   libX11 libXcomposite libXdamage libXext libXfixes libXrandr libxcb libxkbcommon libdrm mesa-libgbm \
-  alsa-lib atk at-spi2-atk cups-libs pango cairo nspr nss
+  alsa-lib atk at-spi2-atk cups-libs pango cairo nspr nss postgresql15
 dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-dnf install -y gh
+rpm --import https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key
+curl -fsSL --retry 3 --tlsv1.2 --proto '=https' https://packages.doppler.com/public/cli/config.rpm.txt -o /etc/yum.repos.d/doppler-cli.repo
+dnf install -y gh doppler
 # Video encoding is optional on the legacy Vercel substrate; recorded by verification.
 dnf install -y ffmpeg || echo 'openinspect.image.optional_unavailable=ffmpeg'
 build_dir="$(mktemp -d /tmp/openinspect-desktop.XXXXXX)"

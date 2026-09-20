@@ -74,6 +74,13 @@ export const scmSettingsSchema = z
   .object({
     /** Always open pull/merge requests created by sessions as drafts. */
     alwaysUseDraftMode: z.boolean({ error: "alwaysUseDraftMode must be a boolean" }).optional(),
+    /**
+     * Open pull/merge requests as the deployment's SCM app identity instead of
+     * the prompting user's OAuth identity, so the user can review their own PRs.
+     */
+    openPullRequestsAsApp: z
+      .boolean({ error: "openPullRequestsAsApp must be a boolean" })
+      .optional(),
     /** Label applied to pull/merge requests created by sessions. */
     pullRequestLabel: z
       .string({ error: "pullRequestLabel must be a string" })
@@ -84,8 +91,9 @@ export const scmSettingsSchema = z
       .optional(),
   })
   .strict()
-  .transform(({ alwaysUseDraftMode, pullRequestLabel }) => ({
+  .transform(({ alwaysUseDraftMode, openPullRequestsAsApp, pullRequestLabel }) => ({
     ...(alwaysUseDraftMode !== undefined ? { alwaysUseDraftMode } : {}),
+    ...(openPullRequestsAsApp !== undefined ? { openPullRequestsAsApp } : {}),
     ...(pullRequestLabel ? { pullRequestLabel } : {}),
   }));
 
