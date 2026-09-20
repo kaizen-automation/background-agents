@@ -229,6 +229,15 @@ export const MODEL_CATALOG = [
           default: GPT_5_6_DEFAULT_REASONING_EFFORT,
         },
       },
+      {
+        id: "azure/gpt-5.6-terra",
+        name: "GPT 5.6 Terra",
+        description: "Balanced, cost-efficient everyday work via Azure OpenAI",
+        reasoning: {
+          efforts: ["none", "low", "medium", "high", "xhigh"],
+          default: GPT_5_6_DEFAULT_REASONING_EFFORT,
+        },
+      },
     ],
   },
   {
