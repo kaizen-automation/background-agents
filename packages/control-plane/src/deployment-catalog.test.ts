@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HARNESS_IDS } from "@open-inspect/shared/harnesses";
-import { DEFAULT_MODEL, VALID_MODELS } from "@open-inspect/shared/models";
+import { DEFAULT_ENABLED_MODELS, DEFAULT_MODEL, VALID_MODELS } from "@open-inspect/shared/models";
 import {
   DeploymentCatalogError,
   getDefaultAvailableHarness,
@@ -18,6 +18,7 @@ describe("getDeploymentCatalog", () => {
     const catalog = getDeploymentCatalog({});
     expect(catalog.models).toEqual(VALID_MODELS);
     expect(catalog.harnesses).toEqual(HARNESS_IDS);
+    expect(catalog.defaultEnabledModels).toEqual(DEFAULT_ENABLED_MODELS);
     expect(catalog.restricted).toBe(false);
   });
 
@@ -34,6 +35,18 @@ describe("getDeploymentCatalog", () => {
     expect(catalog.models).toEqual(["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7"]);
     expect(catalog.harnesses).toEqual(["opencode"]);
     expect(catalog.restricted).toBe(true);
+  });
+
+  it("enables every allowlisted model by default, including opt-in catalog entries", () => {
+    expect(DEFAULT_ENABLED_MODELS).not.toContain("azure/gpt-6-astra");
+    const catalog = getDeploymentCatalog({
+      MODEL_ALLOWLIST: "anthropic/claude-sonnet-4-6,azure/gpt-6-astra",
+    });
+    expect(catalog.defaultEnabledModels).toEqual(catalog.models);
+    expect(catalog.defaultEnabledModels).toContain("azure/gpt-6-astra");
+
+    const harnessOnly = getDeploymentCatalog({ HARNESS_ALLOWLIST: "opencode" });
+    expect(harnessOnly.defaultEnabledModels).toEqual(DEFAULT_ENABLED_MODELS);
   });
 
   it("rejects unknown model ids instead of dropping them", () => {

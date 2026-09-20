@@ -1,5 +1,4 @@
 import {
-  DEFAULT_ENABLED_MODELS,
   applyModelPreferenceChanges,
   isValidModel,
   normalizeValidModels,
@@ -143,7 +142,7 @@ export class ModelPreferencesStore {
 
   private decodeSnapshot(row: ModelPreferencesRow | null): ModelPreferencesSnapshot {
     if (!row) {
-      return this.narrowToDeployment(DEFAULT_ENABLED_MODELS, 0);
+      return this.narrowToDeployment(this.catalog.defaultEnabledModels, 0);
     }
 
     let stored: string[] | null = null;
@@ -157,7 +156,7 @@ export class ModelPreferencesStore {
     }
 
     const normalized = normalizeValidModels(stored ?? []);
-    const enabledModels = normalized.length > 0 ? normalized : DEFAULT_ENABLED_MODELS;
+    const enabledModels = normalized.length > 0 ? normalized : this.catalog.defaultEnabledModels;
     return this.narrowToDeployment(enabledModels, row.revision);
   }
 }
