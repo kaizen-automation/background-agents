@@ -1,13 +1,13 @@
 name: Deploy Production (Kaizen)
 
-# Kaizen deployment of the `infra/production` branch. Secrets come from Doppler
+# Kaizen production deployment from `main`. Secrets come from Doppler
 # (project open-inspect, config prd) via deploy/doppler/deploy.sh; the only
-# GitHub secret is DOPPLER_TOKEN. Upstream terraform.yml only deploys `main`
-# and reads ~20 individual GitHub secrets, so it is not used for this branch.
+# GitHub secret is DOPPLER_TOKEN. Upstream terraform.yml also triggers on `main` but
+# needs ~20 individual GitHub secrets; those stay unset, so it skips itself.
 
 on:
   push:
-    branches: [infra/production]
+    branches: [main]
     paths:
       - "deploy/**"
       - "terraform/**"
@@ -18,7 +18,7 @@ on:
       - ".github/workflows/deploy-production.yml"
       - "!**/*.md"
   pull_request:
-    branches: [infra/production]
+    branches: [main]
     paths:
       - "deploy/**"
       - "terraform/**"
