@@ -5,7 +5,12 @@ import {
   isValidReasoningEffort,
   type ModelCategory,
 } from "@open-inspect/shared/models";
-import { HARNESS_IDS, getHarnessLabel, isValidHarness } from "@open-inspect/shared/harnesses";
+import {
+  HARNESS_IDS,
+  getHarnessLabel,
+  isValidHarness,
+  type HarnessId,
+} from "@open-inspect/shared/harnesses";
 import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
 import {
   Select,
@@ -25,6 +30,8 @@ interface AutomationAgentFieldsProps {
   value: AutomationAgentDraft;
   resolvedModel: string;
   enabledModelOptions: ModelCategory[];
+  /** Harnesses this deployment offers in the Agent select. */
+  availableHarnesses?: readonly HarnessId[];
   /** Why no listed model can be submitted, shown under the picker. */
   modelError?: string;
   onChange: (value: AutomationAgentDraft) => void;
@@ -34,6 +41,7 @@ export function AutomationAgentFields({
   value,
   resolvedModel,
   enabledModelOptions,
+  availableHarnesses = HARNESS_IDS,
   modelError = "",
   onChange,
 }: AutomationAgentFieldsProps) {
@@ -74,7 +82,7 @@ export function AutomationAgentFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {HARNESS_IDS.map((harness) => (
+            {availableHarnesses.map((harness) => (
               <SelectItem key={harness} value={harness}>
                 {getHarnessLabel(harness)}
               </SelectItem>

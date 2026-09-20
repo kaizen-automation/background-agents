@@ -51,6 +51,7 @@ import { parsePersistedSandboxSettings } from "../sandbox/settings";
 import type { SandboxSettings } from "@open-inspect/shared/types/integrations";
 import { createSourceControlProviderFromEnv, type SourceControlProvider } from "../source-control";
 import { requireRepoSecretsEncryptionKey, requireTokenEncryptionKey } from "../env-validation";
+import { getDeploymentCatalog, isHarnessAvailable, isModelAvailable } from "../deployment-catalog";
 import type { Env, ClientInfo } from "../types";
 import type { SessionRow } from "./types";
 import type { SqlDatabase } from "../db/sql-database";
@@ -252,6 +253,7 @@ export function createSessionRuntime(platform: SessionPlatform, env: Env): Sessi
   // the validated key, so no fallback path can persist a secret in plaintext.
   const repoSecretsEncryptionKey = requireRepoSecretsEncryptionKey(env);
   const tokenEncryptionKey = requireTokenEncryptionKey(env);
+  const deploymentCatalog = getDeploymentCatalog(env);
 
   // The session-scoped logger, created before anything can capture a logger
   // at all. Its `session_id` is injected per emit through the latched
@@ -460,7 +462,18 @@ export function createSessionRuntime(platform: SessionPlatform, env: Env): Sessi
     participantService,
     callbackService,
     statusService,
-    (model) => userEnvResolver.getProviderAuthenticationError(model),
+    // Dispatch-time gate: a queued model or session harness outside the
+    // deployment allowlist (persisted before the list narrowed) fails the
+    // prompt, never the sandbox.
+    async (model, harness) => {
+      if (!isHarnessAvailable(deploymentCatalog, harness)) {
+        return `Agent "${harness}" is not available in this deployment.`;
+      }
+      if (!isModelAvailable(deploymentCatalog, model)) {
+        return `Model "${model}" is not available in this deployment.`;
+      }
+      return userEnvResolver.getProviderAuthenticationError(model);
+    },
     messageFailures,
     lifecycleManager,
     sessionIndexStore,

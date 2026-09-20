@@ -94,6 +94,26 @@ Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Cla
   `apply`. The Modal secret keeps every name with an empty value so the old credential is reconciled
   away.
 
+### Model & harness allowlist
+
+`deploy/production.tfvars.json` pins what this deployment may run:
+
+- `harness_allowlist = ["opencode"]` — OpenCode is the only agent; the web UI hides the Agent picker
+  and the control plane rejects `harness: claude` on every path.
+- `model_allowlist` — the Bedrock-verified Claude models only (Sonnet 4.6, Opus 4.7, Sonnet 5).
+
+Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
+(`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
+`availableModels` / `availableHarnesses`, which is what the picker, Settings → Models and the
+automation form render; persisted preferences are narrowed to the allowlist on read. Session create,
+child spawn, automation create/update and queued-message dispatch all reject anything outside it
+(HTTP 400), so nothing reaches a sandbox without credentials. Empty lists mean "whole shared
+catalog", so both must stay set. To enable another model (e.g. after the Opus 4.8 Marketplace
+subscription), verify it against Bedrock first, then add its canonical id and `apply 2`.
+
+Azure OpenAI (GPT-6 Astra) is a separate follow-up: when its provider wiring lands and the Azure
+deployment is validated, add `azure/…` ids to `model_allowlist` — until then it stays hidden.
+
 ### Cloudflare API token (least privilege)
 
 Account: Workers Scripts Edit · Workers KV Storage Edit · D1 Edit · Queues Edit · Account Settings

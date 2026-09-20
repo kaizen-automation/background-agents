@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { MODEL_OPTIONS, type ValidModel } from "@open-inspect/shared/models";
+import type { ModelCategory, ValidModel } from "@open-inspect/shared/models";
 import { useEnabledModels } from "@/hooks/use-enabled-models";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 export function ModelsSettings() {
   const {
     enabledModels: storedEnabledModels,
+    availableModelOptions,
     loading,
     error,
     saving,
@@ -22,7 +23,7 @@ export function ModelsSettings() {
     void savePreferences([{ modelId, enabled }]);
   };
 
-  const toggleCategory = (category: (typeof MODEL_OPTIONS)[number], enable: boolean) => {
+  const toggleCategory = (category: ModelCategory, enable: boolean) => {
     const next = new Set(enabledModels);
     for (const model of category.models) {
       if (enable) {
@@ -71,7 +72,7 @@ export function ModelsSettings() {
       </p>
 
       <div className="space-y-6">
-        {MODEL_OPTIONS.map((group) => {
+        {availableModelOptions.map((group) => {
           const allEnabled = group.models.every((m) => enabledModels.has(m.id));
 
           return (

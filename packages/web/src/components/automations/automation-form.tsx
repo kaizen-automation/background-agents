@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useRepos } from "@/hooks/use-repos";
 import { useEnvironments } from "@/hooks/use-environments";
 import { useEnabledModels } from "@/hooks/use-enabled-models";
@@ -41,7 +41,12 @@ interface AutomationFormProps {
 export function AutomationForm({ mode, initialValues, onSubmit, submitting }: AutomationFormProps) {
   const { repos, loading: loadingRepos } = useRepos();
   const { environments, loading: loadingEnvironments } = useEnvironments();
-  const { enabledModels, enabledModelOptions, loading: loadingModels } = useEnabledModels();
+  const {
+    enabledModels,
+    enabledModelOptions,
+    availableHarnesses,
+    loading: loadingModels,
+  } = useEnabledModels();
   const providerAccounts = useProviderAccounts();
   const initialDraft = useMemo(() => createAutomationFormDraft(initialValues), [initialValues]);
   const initialRepositories = useMemo(
@@ -101,6 +106,13 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       reconcileProviderSelectionsForHarness(next.harness, current)
     );
   }, []);
+
+  // A saved harness this deployment no longer offers is swapped for the first
+  // available one, so the form never submits a harness the server would refuse.
+  useEffect(() => {
+    if (loadingModels || availableHarnesses.includes(agent.harness)) return;
+    handleAgentChange({ ...agent, harness: availableHarnesses[0] });
+  }, [agent, availableHarnesses, handleAgentChange, loadingModels]);
 
   const formEvaluation = evaluateAutomationForm({
     mode,
@@ -175,6 +187,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
         value={agent}
         resolvedModel={resolvedModel}
         enabledModelOptions={modelSelection.options}
+        availableHarnesses={availableHarnesses}
         modelError={modelError}
         onChange={handleAgentChange}
       />
