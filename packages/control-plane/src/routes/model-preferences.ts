@@ -5,7 +5,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
 import {
-  DEFAULT_ENABLED_MODELS,
   isValidModel,
   normalizeModelId,
   type ModelPreferenceChange,
@@ -64,11 +63,9 @@ async function getModelPreferences(
       trace_id: ctx.trace_id,
     });
     if (strict) return error("Model preferences storage unavailable", 503);
-    const availableSet = new Set<string>(catalog.models);
-    const enabledModels = DEFAULT_ENABLED_MODELS.filter((model) => availableSet.has(model));
     return snapshotResponse(
       {
-        enabledModels: enabledModels.length > 0 ? enabledModels : [...catalog.models],
+        enabledModels: [...catalog.defaultEnabledModels],
         availableModels: [...catalog.models],
         revision: 0,
       },

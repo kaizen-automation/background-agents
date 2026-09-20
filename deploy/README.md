@@ -121,8 +121,8 @@ resource instead of api.openai.com. OpenCode's built-in `azure` provider authent
 `AZURE_API_KEY` and targets `https://<AZURE_RESOURCE_NAME>.openai.azure.com/`; the sandbox pins the
 resource name in the generated opencode.json (`provider.azure.options.resourceName`,
 `build_azure_provider_config` in `packages/sandbox-runtime/.../opencode_server.py`). Azure models
-live under their own catalog group (`azure/gpt-6-astra`, "Azure OpenAI" in Settings → Models), off
-by default; the existing `openai/*` entries keep going to api.openai.com.
+live under their own catalog group (`azure/gpt-6-astra`, "Azure OpenAI" in Settings → Models); the
+existing `openai/*` entries keep going to api.openai.com.
 
 - Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
   Keys and Endpoint) and `AZURE_OPENAI_RESOURCE_NAME` (the `<RESOURCE_NAME>` in
@@ -136,10 +136,9 @@ by default; the existing `openai/*` entries keep going to api.openai.com.
   `gpt-6-astra`) in the Foundry resource. Any further `azure/<model>` catalog entry needs a
   same-named deployment as well.
 - Then expose the model: append the canonical id `azure/gpt-6-astra` to `model_allowlist` in
-  `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`) and `apply`, and
-  enable it under Settings → Models → "Azure OpenAI" → GPT-6 Astra. Until both are done Astra stays
-  hidden. Sessions pick it as `azure/gpt-6-astra` on the OpenCode harness; the Claude harness cannot
-  run it.
+  `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`) and `apply`. Until
+  then Astra stays hidden. Sessions pick it as `azure/gpt-6-astra` on the OpenCode harness; the
+  Claude harness cannot run it.
 - Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
   empty values), then disable the model again under Settings → Models.
 
@@ -161,9 +160,11 @@ child spawn, automation create/update and queued-message dispatch all reject any
 catalog", so both must stay set. To enable another model (e.g. after the Opus 4.8 Marketplace
 subscription), verify it against Bedrock first, then add its canonical id and `apply 2`.
 
-`azure/gpt-6-astra` is `enabledByDefault: false` in the shared catalog, so after `apply 2` it still
-has to be switched on once under Settings → Models → "Azure OpenAI" before it appears in the picker
-(prerequisites above).
+Every allowlisted model is enabled by default (`defaultEnabledModels` in `deployment-catalog.ts`),
+so `apply 2` is enough for a new entry to show up in the picker; the shared catalog's
+`enabledByDefault` flags only apply when no `model_allowlist` is set. Settings → Models still lets
+someone switch an allowlisted model off (stored in D1 `model_preferences`), and that choice wins
+over the default until it is toggled back.
 
 ### Cloudflare API token (least privilege)
 

@@ -8,6 +8,10 @@
  * model preferences, selected at session or automation create, or dispatched
  * to a sandbox. An empty or unset allowlist means the whole shared catalog.
  *
+ * A model allowlist also defines the default enabled set: every model an
+ * operator lists explicitly is on until someone turns it off in Settings →
+ * Models, regardless of the shared catalog's `enabledByDefault` flags.
+ *
  * Unknown ids fail loudly (the #1602 posture): a typo in Terraform must not
  * silently drop a model from production.
  */
@@ -19,6 +23,7 @@ import {
   type HarnessId,
 } from "@open-inspect/shared/harnesses";
 import {
+  DEFAULT_ENABLED_MODELS,
   DEFAULT_MODEL,
   VALID_MODELS,
   isValidModel,
@@ -36,6 +41,8 @@ export interface DeploymentCatalog {
   readonly models: readonly ValidModel[];
   /** Harnesses this deployment may run, in shared-catalog order. */
   readonly harnesses: readonly HarnessId[];
+  /** Models enabled when no preferences are stored, already within `models`. */
+  readonly defaultEnabledModels: readonly ValidModel[];
   /** Whether either allowlist narrows the shared catalog. */
   readonly restricted: boolean;
 }
@@ -94,10 +101,12 @@ export function getDeploymentCatalog(env: DeploymentCatalogEnv): DeploymentCatal
 
   const models = parseModelAllowlist(env.MODEL_ALLOWLIST);
   const harnesses = parseHarnessAllowlist(env.HARNESS_ALLOWLIST);
+  const modelsRestricted = models.length !== VALID_MODELS.length;
   const catalog: DeploymentCatalog = {
     models,
     harnesses,
-    restricted: models.length !== VALID_MODELS.length || harnesses.length !== HARNESS_IDS.length,
+    defaultEnabledModels: modelsRestricted ? models : DEFAULT_ENABLED_MODELS,
+    restricted: modelsRestricted || harnesses.length !== HARNESS_IDS.length,
   };
   catalogCache.set(cacheKey, catalog);
   return catalog;
