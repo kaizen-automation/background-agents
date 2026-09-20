@@ -92,11 +92,24 @@ Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Cla
 
 ### Cloudflare API token (least privilege)
 
-Account: Workers Scripts Edit · Workers KV Storage Edit · Workers R2 Storage Edit · D1 Edit · Queues
-Edit · Account Settings Read. Zone (only `kaizenautomation.dev`): Workers Routes Edit · DNS Edit.
-Nothing else. R2 Storage is needed for the media bucket; DNS Edit for the
-`cloudflare_workers_custom_domain` record. Verify a token without printing it:
-`deploy/doppler/deploy.sh run bash -c 'curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets | jq .success'`.
+Account: Workers Scripts Edit · Workers KV Storage Edit · D1 Edit · Queues Edit · Account Settings
+Read. Zone (only `kaizenautomation.dev`): Workers Routes Edit. Nothing else — in particular:
+
+- **No R2 permission.** The account holds unrelated R2 buckets, so the media bucket
+  `open-inspect-media` is created out-of-band and Terraform only binds it
+  (`r2_media_bucket_managed = false`, `r2_media_bucket_name = "open-inspect-media"` in
+  `production.tfvars.json`; `tests/external_media_bucket.tftest.hcl`). Attaching an R2 binding is a
+  Worker-script operation, so Workers Scripts Edit suffices. Terraform state lives in a separate
+  bucket reached through S3 credentials scoped to that bucket alone (`R2_*`).
+- **No DNS permission.** `agents.kaizenautomation.dev` is a Workers Custom Domain
+  (`PUT /accounts/{id}/workers/domains`): Cloudflare creates the proxied DNS record and edge
+  certificate itself, and the documented requirement is Zone → Workers Routes Write on the zone, not
+  DNS Write. Do not pre-create a DNS record for the hostname — an existing CNAME blocks the Custom
+  Domain.
+
+Probe the token without printing it:
+`deploy/doppler/deploy.sh run bash -c 'curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains | jq .success'`
+(expect `true`); the same call against `/r2/buckets` must return an authentication error.
 
 ### GitHub App permissions
 
@@ -180,9 +193,10 @@ sessions immediately); AWS Budgets on Bedrock (alert + optional IAM deny action)
 limits.
 
 **Shut down** — `deploy/doppler/deploy.sh destroy` removes every Cloudflare resource (Workers, DOs,
-D1, KV, R2 media bucket, Queues, custom domain) and the Modal app/secrets. Then delete the R2 state
-bucket, the Cloudflare/Modal tokens, the Bedrock API key (IAM), and uninstall the GitHub App.
-Pausing instead: Modal → Apps → open-inspect → Stop, and suspend users in Settings → Users.
+D1, KV, Queues, custom domain) and the Modal app/secrets; the media bucket is not Terraform's and
+survives. Then delete `open-inspect-media` and the R2 state bucket, the Cloudflare/Modal tokens, the
+Bedrock API key (IAM), and uninstall the GitHub App. Pausing instead: Modal → Apps → open-inspect →
+Stop, and suspend users in Settings → Users.
 
 ## Costs
 

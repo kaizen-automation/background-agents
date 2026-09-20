@@ -16,7 +16,7 @@
 # Required account permissions:
 #   - Workers Scripts: Edit
 #   - Workers KV Storage: Edit
-#   - Workers R2 Storage: Edit
+#   - Workers R2 Storage: Edit (not needed when r2_media_bucket_managed = false)
 #   - D1: Edit
 #   - Queues: Edit (required when enable_slack_bot = true)
 # Optional if you manage Cloudflare routes/custom domains:
@@ -338,9 +338,11 @@ project_root = "../../../"
 #   wrangler r2 bucket create <bucket-name> --location ENAM
 # Or create via the Cloudflare dashboard: R2 -> Create bucket (Standard storage class).
 #
-# After manual creation, import the bucket so Terraform manages the binding without
-# trying to recreate it:
-#   terraform import cloudflare_r2_bucket.media <cloudflare_account_id>/<bucket-name>/default
+# After manual creation, either leave the bucket entirely outside Terraform
+# (r2_media_bucket_managed = false below — Terraform only attaches the Worker
+# binding, and the API token needs no R2 permission), or import it so Terraform
+# takes over management:
+#   terraform import cloudflare_r2_bucket.media[0] <cloudflare_account_id>/<bucket-name>/default
 #
 # WARNING — renaming an existing Terraform-managed bucket:
 # If you previously deployed without this variable (Terraform owns the default-named
@@ -353,10 +355,18 @@ project_root = "../../../"
 #   - R2 object-level: Read, Write, Delete on this bucket only.
 # The Terraform/Cloudflare API token does NOT need object-level R2 permissions —
 # it only manages the bucket resource and the Worker binding. Required token scopes:
-#   - Workers R2 Storage: Edit (only needed when Terraform creates/manages the bucket;
-#     if the bucket is pre-created and imported, drop to Read or omit)
+#   - Workers R2 Storage: Edit (only when r2_media_bucket_managed = true; a bucket
+#     that is bound but not managed needs no R2 token permission at all)
 #   - Workers Scripts: Edit (to attach the MEDIA_BUCKET binding to the Worker)
 # r2_media_bucket_name = ""
+
+# Bind a pre-created bucket without managing it (optional, default true = managed).
+# Set false when the account holds R2 buckets the deployment token must never be
+# able to touch; r2_media_bucket_name is then required and r2_media_location is
+# ignored. Flipping an existing deployment to false makes Terraform plan to DESTROY
+# the bucket it manages — first hand it off with
+# `terraform state rm 'cloudflare_r2_bucket.media[0]'`, then apply.
+# r2_media_bucket_managed = true
 
 # =============================================================================
 # Initial Deployment Flags

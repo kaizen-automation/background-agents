@@ -794,9 +794,20 @@ variable "r2_media_location" {
 }
 
 variable "r2_media_bucket_name" {
-  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets)."
+  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets). Required when r2_media_bucket_managed is false."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.r2_media_bucket_managed || trimspace(var.r2_media_bucket_name) != ""
+    error_message = "r2_media_bucket_name must name the pre-created bucket when r2_media_bucket_managed is false."
+  }
+}
+
+variable "r2_media_bucket_managed" {
+  description = "Whether Terraform creates and manages the R2 media bucket. Set false when the bucket is provisioned out-of-band and the Cloudflare API token must carry no R2 permission: Terraform then only attaches the MEDIA_BUCKET binding (Workers Scripts Edit) to the bucket named by r2_media_bucket_name."
+  type        = bool
+  default     = true
 }
 
 # =============================================================================
