@@ -82,7 +82,11 @@ Model status on account `083880123012` / `us-west-2` (probed 2026-09-20 with Cla
   dedicated IAM user whose policy allows only `bedrock:InvokeModel`,
   `bedrock:InvokeModelWithResponseStream`, `bedrock:ListInferenceProfiles`,
   `bedrock:GetInferenceProfile` on `inference-profile/*` and `foundation-model/*`. Anthropic model
-  access must be enabled once per account (Bedrock → Model catalog → use-case form).
+  access must be enabled once per account (Bedrock → Model catalog → use-case form). The user must
+  carry no IP-conditioned policy: sandboxes call Bedrock from Modal's egress IPs. If a network
+  restriction is ever required, Modal Proxies (workspace Settings → Proxies, Team plan+) give
+  sandboxes static IPs to allowlist, at the cost of passing `proxy=modal.Proxy.from_name(...)` to
+  `Sandbox.create` in `packages/modal-infra` — not done here.
 - The key reaches only Modal sandboxes (Terraform test `tests/bedrock_api_key.tftest.hcl` pins that
   the control plane never binds it). In the sandbox the harness passes it to Claude Code and strips
   every Anthropic-API / OAuth credential, and vice versa (`tests/test_claude_env.py`).
