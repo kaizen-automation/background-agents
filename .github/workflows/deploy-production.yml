@@ -62,7 +62,7 @@ jobs:
           fi
 
   deploy:
-    name: ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
+    name: Plan / Apply
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [check-secrets]
