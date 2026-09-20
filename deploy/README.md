@@ -7,7 +7,7 @@ Terraform under `terraform/environments/production`.
 ```
                  GitHub App OAuth (org members only)
   engineer ─────────────────────────────────────────────┐
-     │  https://agents.<domain>  (Cloudflare custom domain)
+     │  https://agents.kaizenautomation.dev  (Cloudflare custom domain)
      ▼
 ┌────────────────────┐   service binding   ┌──────────────────────────────┐
 │ web Worker         │────────────────────▶│ control-plane Worker         │
@@ -35,9 +35,9 @@ file, fallback cache, or command-line argument ever carries a secret value.
 | ---------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------- |
 | `CLOUDFLARE_ACCOUNT_ID`                                                            | Terraform provider, wrangler                | account for all Cloudflare resources              |
 | `CLOUDFLARE_API_TOKEN`                                                             | Terraform provider, wrangler                | scoped token (see below)                          |
-| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone that hosts `agents.<domain>`                 |
-| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | control-plane `*.workers.dev` hostname            |
-| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | web Worker custom hostname                        |
+| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone `kaizenautomation.dev`                       |
+| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | `kaizen-agents` → control-plane `*.workers.dev`   |
+| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | `agents.kaizenautomation.dev` (web Worker)        |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state` |
 | `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                        |
 | `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                               |
@@ -60,8 +60,10 @@ Doppler with `doppler secrets set NAME="$(openssl rand -base64 32)" --silent`.
 ### Cloudflare API token (least privilege)
 
 Account: Workers Scripts Edit · Workers KV Storage Edit · Workers R2 Storage Edit · D1 Edit · Queues
-Edit · Account Settings Read. Zone (only the `<domain>` zone): Workers Routes Edit · DNS Edit.
-Nothing else.
+Edit · Account Settings Read. Zone (only `kaizenautomation.dev`): Workers Routes Edit · DNS Edit.
+Nothing else. R2 Storage is needed for the media bucket; DNS Edit for the
+`cloudflare_workers_custom_domain` record. Verify a token without printing it:
+`deploy/doppler/deploy.sh run bash -c 'curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets | jq .success'`.
 
 ### GitHub App permissions
 
@@ -85,12 +87,13 @@ deploy/doppler/deploy.sh apply 2      # phase 2: DO + service bindings on
 deploy/doppler/deploy.sh output
 ```
 
-Later changes: `deploy/doppler/deploy.sh plan` / `apply` (phase 2 is the default). Terraform builds
-the shared package, the control-plane Worker and the OpenNext web bundle, applies D1 migrations, and
-deploys the Modal app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node`
-22, `npm`, `uv`, `jq`, `terraform` (>= 1.14, per `versions.tf`) and `doppler` must be on `PATH`.
-Wrangler and the Modal CLI come from the repository's own dependencies (`npm install`, and
-`uv sync --frozen` in `packages/modal-infra`).
+Later changes: `deploy/doppler/deploy.sh plan` / `apply` (phase 2 is the default). The wrapper
+builds `@open-inspect/shared` and the Worker bundles first (Terraform reads `dist/index.js` at plan
+time); Terraform then builds the OpenNext web bundle, applies D1 migrations, and deploys the Modal
+app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node` 22, `npm`, `uv`,
+`jq`, `terraform` (>= 1.14, per `versions.tf`) and `doppler` must be on `PATH`. Wrangler and the
+Modal CLI come from the repository's own dependencies (`npm install`, and `uv sync --frozen` in
+`packages/modal-infra`).
 
 After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 

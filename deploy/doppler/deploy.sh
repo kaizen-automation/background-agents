@@ -175,6 +175,15 @@ tf() {
   terraform -chdir="$TF_DIR" "$@"
 }
 
+# Terraform reads packages/*/dist/index.js at plan time; @open-inspect/shared must build first.
+build_workers() {
+  log "building shared + worker bundles"
+  (cd "$REPO_ROOT" &&
+    npm run build -w @open-inspect/shared &&
+    npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot \
+      -w @open-inspect/github-bot -w @open-inspect/linear-bot) >/dev/null
+}
+
 # Cloudflare REST call; the token travels in a header from the environment only.
 cf_api() {
   local method="$1" path="$2"; shift 2
@@ -204,12 +213,14 @@ cmd_init() {
 cmd_plan() {
   local phase="${1:-2}"; shift || true
   mapfile -t bvars < <(binding_vars "$phase")
+  build_workers
   tf plan -input=false -var-file="$OI_TFVARS_JSON" "${bvars[@]}" "$@"
 }
 
 cmd_apply() {
   local phase="${1:-2}"; shift || true
   mapfile -t bvars < <(binding_vars "$phase")
+  build_workers
   tf apply -input=false -var-file="$OI_TFVARS_JSON" "${bvars[@]}" "$@"
 }
 
