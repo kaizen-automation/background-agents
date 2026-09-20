@@ -35,7 +35,7 @@ export const KEYBOARD_SHORTCUT_PREFERENCES_VERSION = 1;
 
 export const KEYBOARD_SHORTCUT_DEFINITIONS = {
   "send-prompt": {
-    defaultBinding: { code: "Enter", primary: true, alt: false, shift: false },
+    defaultBinding: { code: "Enter", primary: false, alt: false, shift: false },
     global: false,
   },
   "open-command-menu": {

@@ -72,7 +72,7 @@ describe("keyboard shortcut preferences", () => {
       "toggle-sidebar",
     ]);
     expect(keyboardShortcutBindingKey(DEFAULT_KEYBOARD_SHORTCUTS["send-prompt"])).toBe(
-      "true:false:false:Enter"
+      "false:false:false:Enter"
     );
   });
 });

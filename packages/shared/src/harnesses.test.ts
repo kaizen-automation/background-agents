@@ -81,6 +81,8 @@ describe("harnessSupportsProviderAuth", () => {
     expect(harnessSupportsProviderAuth("claude", "azure", "api_key")).toBe(false);
     expect(checkHarnessCompatibility("opencode", "azure/gpt-6-astra")).toBeNull();
     expect(checkHarnessCompatibility("claude", "azure/gpt-6-astra")?.code).toBe("model");
+    expect(checkHarnessCompatibility("opencode", "azure/gpt-5.6-sol")).toBeNull();
+    expect(checkHarnessCompatibility("claude", "azure/gpt-5.6-sol")?.code).toBe("model");
   });
 
   it("selects no auth mode for a provider the harness has no row for", () => {

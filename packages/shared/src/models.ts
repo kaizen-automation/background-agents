@@ -220,6 +220,15 @@ export const MODEL_CATALOG = [
           default: "medium",
         },
       },
+      {
+        id: "azure/gpt-5.6-sol",
+        name: "GPT 5.6 Sol",
+        description: "Frontier model for complex professional work via Azure OpenAI",
+        reasoning: {
+          efforts: ["none", "low", "medium", "high", "xhigh"],
+          default: GPT_5_6_DEFAULT_REASONING_EFFORT,
+        },
+      },
     ],
   },
   {

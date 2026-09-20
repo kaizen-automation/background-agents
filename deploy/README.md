@@ -21,12 +21,12 @@ Terraform under `terraform/environments/production`.
                                            │  sandbox: Claude Agent│
                                            │  SDK + repo checkout  │──────▶ Amazon Bedrock (us-west-2)
                                            └──────────────────────┘
-Doppler open-inspect/prd ──(deploy time only)──▶ TF_VAR_* ──▶ Worker secrets · Modal secrets
+Doppler kaizen-code/prd  ──(deploy time only)──▶ TF_VAR_* ──▶ Worker secrets · Modal secrets
 ```
 
 ## Secrets
 
-Doppler project `open-inspect`, config `prd`, is the only place secrets live. The wrapper
+Doppler project `kaizen-code`, config `prd`, is the only place secrets live. The wrapper
 `deploy/doppler/deploy.sh` runs `doppler run --no-fallback` and maps each Doppler secret to the
 `TF_VAR_*` (or backend) environment variable that upstream Terraform already consumes. No tfvars
 file, fallback cache, or command-line argument ever carries a secret value.
@@ -121,8 +121,8 @@ resource instead of api.openai.com. OpenCode's built-in `azure` provider authent
 `AZURE_API_KEY` and targets `https://<AZURE_RESOURCE_NAME>.openai.azure.com/`; the sandbox pins the
 resource name in the generated opencode.json (`provider.azure.options.resourceName`,
 `build_azure_provider_config` in `packages/sandbox-runtime/.../opencode_server.py`). Azure models
-live under their own catalog group (`azure/gpt-6-astra`, "Azure OpenAI" in Settings → Models); the
-existing `openai/*` entries keep going to api.openai.com.
+live under their own catalog group ("Azure OpenAI" in Settings → Models: `azure/gpt-6-astra`,
+`azure/gpt-5.6-sol`); the existing `openai/*` entries keep going to api.openai.com.
 
 - Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
   Keys and Endpoint) and `AZURE_OPENAI_RESOURCE_NAME` (the `<RESOURCE_NAME>` in
@@ -132,15 +132,17 @@ existing `openai/*` entries keep going to api.openai.com.
   (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's Bedrock/Anthropic
   credential.
 - **Deployment name must equal the model name.** OpenCode addresses Azure deployments by the model
-  id, so before enabling `azure/gpt-6-astra` create a deployment named exactly `gpt-6-astra` (model
-  `gpt-6-astra`) in the Foundry resource. Any further `azure/<model>` catalog entry needs a
+  id, so before enabling an `azure/<model>` entry create a deployment named exactly `<model>` in the
+  Foundry resource: `gpt-6-astra` (model `gpt-6-astra`) for `azure/gpt-6-astra`, `gpt-5.6-sol`
+  (model `gpt-5.6-sol`) for `azure/gpt-5.6-sol`. Any further `azure/<model>` catalog entry needs a
   same-named deployment as well.
-- Then expose the model: append the canonical id `azure/gpt-6-astra` to `model_allowlist` in
-  `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`) and `apply`. Until
-  then Astra stays hidden. Sessions pick it as `azure/gpt-6-astra` on the OpenCode harness; the
-  Claude harness cannot run it.
+- Then expose the model: append the canonical id (`azure/gpt-6-astra`, `azure/gpt-5.6-sol`) to
+  `model_allowlist` in `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`)
+  and `apply`. Until then the model stays hidden; once allowlisted it is enabled by default
+  (Settings → Models only needed to turn it off). Sessions pick it by its `azure/...` id on the
+  OpenCode harness; the Claude harness cannot run it.
 - Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
-  empty values), then disable the model again under Settings → Models.
+  empty values) and drop the `azure/*` ids from `model_allowlist`.
 
 ### Model & harness allowlist
 
@@ -202,7 +204,7 @@ present unless someone deliberately adds them under Settings → Secrets.
 ## Deploying
 
 ```bash
-export DOPPLER_TOKEN=...              # read-only service token for open-inspect/prd
+export DOPPLER_TOKEN=...              # read-only service token for kaizen-code/prd
 deploy/doppler/deploy.sh check        # tooling + secret names (no values)
 deploy/doppler/deploy.sh bootstrap    # R2 state bucket + terraform init
 deploy/doppler/deploy.sh apply 1      # phase 1: bindings off
@@ -258,11 +260,11 @@ allow a user outside the org, add their login to Doppler `ALLOWED_USERS` and re-
 **Rotate the model key** — Bedrock: IAM → API keys for Bedrock → Generate a new long-term key for
 the same user, `doppler secrets set AWS_BEARER_TOKEN_BEDROCK` (value from stdin), run
 `deploy/doppler/deploy.sh apply`, then delete the old key in IAM. Anthropic API: same flow with a
-new key from the `open-inspect` workspace and `doppler secrets set ANTHROPIC_API_KEY`. New sandboxes
-pick it up immediately; running ones keep the old key until they exit. Rotate
-`GITHUB_APP_PRIVATE_KEY`, `MODAL_API_SECRET`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET` the same way
-(`NEXTAUTH_SECRET` signs everyone out). Never rotate `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`,
-`TOKEN_ENCRYPTION_KEY` or `REPO_SECRETS_ENCRYPTION_KEY` without re-entering the data they protect.
+new key from the Anthropic console and `doppler secrets set ANTHROPIC_API_KEY`. New sandboxes pick
+it up immediately; running ones keep the old key until they exit. Rotate `GITHUB_APP_PRIVATE_KEY`,
+`MODAL_API_SECRET`, `GITHUB_CLIENT_SECRET`, `NEXTAUTH_SECRET` the same way (`NEXTAUTH_SECRET` signs
+everyone out). Never rotate `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`, `TOKEN_ENCRYPTION_KEY` or
+`REPO_SECRETS_ENCRYPTION_KEY` without re-entering the data they protect.
 
 **Inspect usage / cost** — per-session cost is shown in the session header and Settings → Usage; AWS
 Cost Explorer filtered to service _Amazon Bedrock_ (or Bedrock → Model invocation logging when

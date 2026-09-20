@@ -277,6 +277,8 @@ class TestBuildPromptRequestBody:
             ("openai/gpt-5.6-luna", "max"),
             ("azure/gpt-6-astra", "medium"),
             ("azure/gpt-6-astra", "max"),
+            ("azure/gpt-5.6-sol", "none"),
+            ("azure/gpt-5.6-sol", "xhigh"),
         ],
     )
     def test_reasoning_effort_uses_variant(self, bridge: AgentBridge, model: str, effort: str):

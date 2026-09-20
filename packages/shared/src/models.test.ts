@@ -47,7 +47,7 @@ const OPENAI_MODELS = [
 
 const XAI_MODELS = ["xai/grok-4.5", "xai/grok-4.6", "xai/grok-build-0.1"] as const;
 
-const AZURE_MODELS = ["azure/gpt-6-astra"] as const;
+const AZURE_MODELS = ["azure/gpt-6-astra", "azure/gpt-5.6-sol"] as const;
 
 const ZEN_MODELS = [
   "opencode/kimi-k2.5",
@@ -298,6 +298,7 @@ describe("model utilities", () => {
     expect(getSubscriptionProviderForModel("anthropic/claude-sonnet-4-6")).toBe("anthropic");
     expect(getSubscriptionProviderForModel("deepseek/deepseek-v4-pro")).toBeNull();
     expect(getSubscriptionProviderForModel("azure/gpt-6-astra")).toBeNull();
+    expect(getSubscriptionProviderForModel("azure/gpt-5.6-sol")).toBeNull();
   });
 
   it("routes the Azure OpenAI catalog entry to the azure provider, not openai", () => {
@@ -309,6 +310,14 @@ describe("model utilities", () => {
     expect(normalizeModelId("gpt-6-astra")).toBe("openai/gpt-6-astra");
     expect(getReasoningConfig("azure/gpt-6-astra")).toEqual(
       getReasoningConfig("openai/gpt-6-astra")
+    );
+    expect(extractProviderAndModel("azure/gpt-5.6-sol")).toEqual({
+      provider: "azure",
+      model: "gpt-5.6-sol",
+    });
+    expect(normalizeModelId("gpt-5.6-sol")).toBe("openai/gpt-5.6-sol");
+    expect(getReasoningConfig("azure/gpt-5.6-sol")).toEqual(
+      getReasoningConfig("openai/gpt-5.6-sol")
     );
   });
 
