@@ -12,6 +12,7 @@ import {
 const GPT = "openai/gpt-5.4" as const;
 const HAIKU = "anthropic/claude-haiku-4-5" as const;
 const SONNET = "anthropic/claude-sonnet-4-6" as const;
+const ASTRA = "azure/gpt-6-astra" as const;
 
 class ConflictDatabase implements SqlDatabase {
   reads = 0;
@@ -109,6 +110,14 @@ describe("ModelPreferencesStore", () => {
       const db = new ConflictDatabase(false, "{");
 
       await expect(getEffectiveEnabledModels(db, catalog)).resolves.toEqual([HAIKU, SONNET]);
+    });
+
+    it("enables opt-in catalog models by default when the allowlist names them", async () => {
+      expect(DEFAULT_ENABLED_MODELS).not.toContain(ASTRA);
+      const optIn = getDeploymentCatalog({ MODEL_ALLOWLIST: `${SONNET},${ASTRA}` });
+      const db = new ConflictDatabase(false, "{");
+
+      await expect(getEffectiveEnabledModels(db, optIn)).resolves.toEqual([SONNET, ASTRA]);
     });
 
     it("refuses to enable a model outside the allowlist", async () => {
