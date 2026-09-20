@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig, useSWRConfig } from "swr";
-import { DEFAULT_ENABLED_MODELS } from "@open-inspect/shared/models";
+import { DEFAULT_ENABLED_MODELS, VALID_MODELS } from "@open-inspect/shared/models";
+import { HARNESS_IDS } from "@open-inspect/shared/harnesses";
 import { MODEL_PREFERENCES_KEY, useEnabledModels } from "./use-enabled-models";
 
 afterEach(() => {
@@ -13,14 +14,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function wrapper(enabledModels: unknown) {
+function wrapper(enabledModels: unknown, extra: Record<string, unknown> = {}) {
   return function TestWrapper({ children }: { children: ReactNode }) {
     return (
       <SWRConfig
         value={{
           provider: () => new Map(),
           fallback: {
-            [MODEL_PREFERENCES_KEY]: { enabledModels, revision: 1 },
+            [MODEL_PREFERENCES_KEY]: { enabledModels, revision: 1, ...extra },
           },
           revalidateIfStale: false,
         }}
@@ -44,6 +45,44 @@ describe("useEnabledModels", () => {
       wrapper: wrapper(["openai/gpt-5.2"]),
     });
     expect(result.current.enabledModels).toEqual(DEFAULT_ENABLED_MODELS);
+  });
+
+  it("exposes the full catalog when the response carries no deployment allowlist", () => {
+    const { result } = renderHook(() => useEnabledModels(), {
+      wrapper: wrapper(["openai/gpt-5.4"]),
+    });
+    expect(result.current.availableModels).toEqual(VALID_MODELS);
+    expect(result.current.availableHarnesses).toEqual(HARNESS_IDS);
+    expect(result.current.availableModelOptions.flatMap((group) => group.models)).toHaveLength(
+      VALID_MODELS.length
+    );
+  });
+
+  it("narrows enabled models and the settings catalog to the deployment allowlist", () => {
+    const { result } = renderHook(() => useEnabledModels(), {
+      wrapper: wrapper(["openai/gpt-5.4", "anthropic/claude-sonnet-4-6"], {
+        availableModels: ["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7"],
+        availableHarnesses: ["opencode"],
+      }),
+    });
+    expect(result.current.enabledModels).toEqual(["anthropic/claude-sonnet-4-6"]);
+    expect(result.current.availableModels).toEqual([
+      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-opus-4-7",
+    ]);
+    expect(
+      result.current.availableModelOptions.flatMap((group) => group.models.map((m) => m.id))
+    ).toEqual(["anthropic/claude-sonnet-4-6", "anthropic/claude-opus-4-7"]);
+    expect(result.current.availableHarnesses).toEqual(["opencode"]);
+  });
+
+  it("falls back to every allowlisted model when none of the enabled ones are available", () => {
+    const { result } = renderHook(() => useEnabledModels(), {
+      wrapper: wrapper(["openai/gpt-5.4"], {
+        availableModels: ["anthropic/claude-opus-4-7"],
+      }),
+    });
+    expect(result.current.enabledModels).toEqual(["anthropic/claude-opus-4-7"]);
   });
 
   it("stores the authoritative PATCH response", async () => {

@@ -208,6 +208,21 @@ export const MODEL_CATALOG = [
     ],
   },
   {
+    category: "Azure OpenAI",
+    enabledByDefault: false,
+    models: [
+      {
+        id: "azure/gpt-6-astra",
+        name: "GPT-6 Astra",
+        description: "Most capable OpenAI model via Azure OpenAI",
+        reasoning: {
+          efforts: ["low", "medium", "high", "xhigh", "max"],
+          default: "medium",
+        },
+      },
+    ],
+  },
+  {
     category: "OpenCode Zen",
     enabledByDefault: false,
     models: [

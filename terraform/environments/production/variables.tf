@@ -363,6 +363,26 @@ variable "aws_region" {
   }
 }
 
+variable "azure_openai_api_key" {
+  description = "Azure OpenAI (Azure AI Foundry) API key. Injected into Modal session sandboxes as AZURE_API_KEY so the OpenCode harness can run azure/* catalog models (for example azure/gpt-6-astra) through the company's Azure resource instead of api.openai.com. Optional: set together with azure_openai_resource_name, or leave both blank."
+  type        = string
+  sensitive   = true
+  default     = ""
+  nullable    = false
+}
+
+variable "azure_openai_resource_name" {
+  description = "Azure OpenAI resource name: the <RESOURCE_NAME> in https://<RESOURCE_NAME>.openai.azure.com/. Injected into Modal session sandboxes as AZURE_RESOURCE_NAME. Each azure/* catalog model needs a deployment of the same name in this resource. Required when azure_openai_api_key is set; must be blank otherwise."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = (trimspace(var.azure_openai_api_key) == "") == (trimspace(var.azure_openai_resource_name) == "")
+    error_message = "azure_openai_api_key and azure_openai_resource_name must be set together: OpenCode cannot reach Azure OpenAI with only one of them."
+  }
+}
+
 variable "anthropic_api_key" {
   description = "Anthropic API key for the Slack and Linear bot classifiers, also injected into Modal session sandboxes and OpenComputer sandboxes. Daytona, E2B and Vercel read model keys only from the scoped secret store, as do Modal image builds. Optional: leave blank to supply model credentials as scoped secrets, which override this value on every provider. Required only when a classifier bot is enabled and classification_model is an Anthropic model."
   type        = string
@@ -739,6 +759,23 @@ variable "app_icon_url" {
   description = "Optional URL (absolute or root-relative) to a custom logo image for the command menu and browser favicon. Leave empty to use the built-in favicon and default in-app icon."
   type        = string
   default     = ""
+}
+
+variable "model_allowlist" {
+  description = "Models this deployment may run, as canonical shared-catalog IDs (e.g. anthropic/claude-sonnet-4-6). Only these appear in the model picker and Settings > Models, and the control plane rejects any other model on session, child-session, automation and queued-message paths. Empty = the whole shared catalog."
+  type        = list(string)
+  default     = []
+}
+
+variable "harness_allowlist" {
+  description = "Agent harnesses this deployment may run (claude, opencode). A single entry hides the Agent picker in the web UI and the control plane rejects any other harness. Empty = every harness."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for h in var.harness_allowlist : contains(["claude", "opencode"], h)])
+    error_message = "harness_allowlist entries must be 'claude' or 'opencode'."
+  }
 }
 
 variable "enable_durable_object_bindings" {

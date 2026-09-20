@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
-import { DEFAULT_ENABLED_MODELS } from "@open-inspect/shared/models";
+import { HARNESS_IDS } from "@open-inspect/shared/harnesses";
+import { DEFAULT_ENABLED_MODELS, VALID_MODELS } from "@open-inspect/shared/models";
 import { cleanD1Tables } from "./cleanup";
 import { serviceFetch } from "./helpers";
 
@@ -24,6 +25,15 @@ async function getStoredRevision(): Promise<number | null> {
     "SELECT revision FROM model_preferences WHERE id = 'global'"
   ).first<{ revision: number }>();
   return row?.revision ?? null;
+}
+
+function snapshot(enabledModels: readonly string[], revision: number) {
+  return {
+    enabledModels,
+    availableModels: VALID_MODELS,
+    availableHarnesses: HARNESS_IDS,
+    revision,
+  };
 }
 
 function patchPreferences(changes: Array<{ modelId: string; enabled: boolean }>) {
@@ -55,7 +65,7 @@ describe("Model preferences API", () => {
     const response = await serviceFetch("https://test.local/model-preferences");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ enabledModels: DEFAULT_ENABLED_MODELS, revision: 0 });
+    expect(await response.json()).toEqual(snapshot(DEFAULT_ENABLED_MODELS, 0));
   });
 
   it("returns an authoritative snapshot for strict reads", async () => {
@@ -64,7 +74,7 @@ describe("Model preferences API", () => {
     const response = await serviceFetch("https://test.local/model-preferences?strict=true");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ enabledModels: ["openai/gpt-5.4"], revision: 1 });
+    expect(await response.json()).toEqual(snapshot(["openai/gpt-5.4"], 1));
   });
 
   it("filters removed models without changing the stored row", async () => {
@@ -74,10 +84,9 @@ describe("Model preferences API", () => {
     const response = await serviceFetch("https://test.local/model-preferences");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      enabledModels: ["openai/gpt-5.4", "anthropic/claude-sonnet-4-6"],
-      revision: 1,
-    });
+    expect(await response.json()).toEqual(
+      snapshot(["openai/gpt-5.4", "anthropic/claude-sonnet-4-6"], 1)
+    );
     expect(await getStoredModels()).toEqual(stored);
   });
 
@@ -86,10 +95,9 @@ describe("Model preferences API", () => {
 
     const response = await serviceFetch("https://test.local/model-preferences");
 
-    expect(await response.json()).toEqual({
-      enabledModels: ["openai/gpt-5.4", "anthropic/claude-sonnet-4-6"],
-      revision: 1,
-    });
+    expect(await response.json()).toEqual(
+      snapshot(["openai/gpt-5.4", "anthropic/claude-sonnet-4-6"], 1)
+    );
   });
 
   it("returns defaults when all stored models have been removed", async () => {
@@ -97,7 +105,7 @@ describe("Model preferences API", () => {
 
     const response = await serviceFetch("https://test.local/model-preferences");
 
-    expect(await response.json()).toEqual({ enabledModels: DEFAULT_ENABLED_MODELS, revision: 1 });
+    expect(await response.json()).toEqual(snapshot(DEFAULT_ENABLED_MODELS, 1));
   });
 
   it("returns defaults for a malformed stored value", async () => {
@@ -106,7 +114,7 @@ describe("Model preferences API", () => {
     const response = await serviceFetch("https://test.local/model-preferences");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ enabledModels: DEFAULT_ENABLED_MODELS, revision: 1 });
+    expect(await response.json()).toEqual(snapshot(DEFAULT_ENABLED_MODELS, 1));
   });
 
   it("applies atomic model membership changes and increments the revision", async () => {
@@ -119,7 +127,7 @@ describe("Model preferences API", () => {
 
     const expected = ["anthropic/claude-sonnet-4-6", "anthropic/claude-haiku-4-5"];
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ enabledModels: expected, revision: 2 });
+    expect(await response.json()).toEqual(snapshot(expected, 2));
     expect(await getStoredModels()).toEqual(expected);
     expect(await getStoredRevision()).toBe(2);
   });

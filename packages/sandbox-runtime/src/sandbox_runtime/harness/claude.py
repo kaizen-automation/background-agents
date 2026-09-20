@@ -52,6 +52,7 @@ from .base import (
     PromptLimits,
     TurnOutcome,
 )
+from .bedrock import BEDROCK_MODEL_SNAPSHOTS
 from .claude_env import (
     CLAUDE_POLICY_SETTINGS,
     ClaudeAuthMode,
@@ -74,13 +75,6 @@ THINKING_BUDGET_MODELS: Final = frozenset(
     {"claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5"}
 )
 THINKING_BUDGETS: Final = {"high": 16_000, "max": 31_999}
-# Bedrock only resolves dated snapshot ids for these; Claude Code maps the
-# snapshot name to the regional inference profile itself.
-BEDROCK_MODEL_SNAPSHOTS: Final = {
-    "claude-haiku-4-5": "claude-haiku-4-5-20251001",
-    "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
-    "claude-opus-4-5": "claude-opus-4-5-20251101",
-}
 EFFORT_LEVELS: Final = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 # Everything the child may call; `dontAsk` approves what is listed and denies the rest.

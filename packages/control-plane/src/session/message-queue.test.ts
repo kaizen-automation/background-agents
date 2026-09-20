@@ -10,6 +10,7 @@ import {
 import { MAX_UNFINISHED_PROMPTS } from "@open-inspect/shared/types/prompts";
 import type { ClientInfo } from "../types";
 import type { MessageStatus } from "@open-inspect/shared/types/sessions";
+import type { HarnessId } from "@open-inspect/shared/harnesses";
 import type { MessageRow, ParticipantRow, SessionRow, SessionAttachmentRow } from "./types";
 import type { SessionCoreRepository } from "./session-core-repository";
 import type { ParticipantRepository } from "./participant-repository";
@@ -247,7 +248,9 @@ function buildQueue() {
     completeDelivery: vi.fn(),
   };
   const projectTerminalMessage = vi.fn(async () => {});
-  const getProviderAuthenticationError = vi.fn(async (_model: string) => null as string | null);
+  const getProviderAuthenticationError = vi.fn(
+    async (_model: string, _harness: HarnessId) => null as string | null
+  );
 
   const alarmScheduler = createEarliestAlarmScheduler(
     { getAlarm, setAlarm, deleteAlarm: vi.fn(async () => {}) },
@@ -1202,7 +1205,7 @@ describe("SessionMessageQueue", () => {
 
     await h.queue.processMessageQueue();
 
-    expect(h.getProviderAuthenticationError).toHaveBeenCalledWith("xai/grok-4.5");
+    expect(h.getProviderAuthenticationError).toHaveBeenCalledWith("xai/grok-4.5", "opencode");
     expect(h.repository.recordMessageCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         messageId: "msg-1",
@@ -1214,6 +1217,34 @@ describe("SessionMessageQueue", () => {
     );
     expect(h.sandboxLifecycle.spawnSandbox).not.toHaveBeenCalled();
     expect(h.wsManager.send).not.toHaveBeenCalled();
+  });
+
+  it("passes the session harness so a deployment can refuse a stale persisted harness", async () => {
+    const h = buildQueue();
+    h.repository.getSession.mockReturnValue(createSession({ harness: "claude" }));
+    h.repository.getNextPendingMessage.mockReturnValueOnce(
+      createMessage({ model: "anthropic/claude-sonnet-4-6" })
+    );
+    h.getProviderAuthenticationError.mockImplementation(async (_model, harness) =>
+      harness === "claude" ? 'Agent "claude" is not available in this deployment.' : null
+    );
+
+    await h.queue.processMessageQueue();
+
+    expect(h.getProviderAuthenticationError).toHaveBeenCalledWith(
+      "anthropic/claude-sonnet-4-6",
+      "claude"
+    );
+    expect(h.repository.recordMessageCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "msg-1",
+        success: false,
+        error: 'Agent "claude" is not available in this deployment.',
+      }),
+      expect.any(Number),
+      "pending"
+    );
+    expect(h.sandboxLifecycle.spawnSandbox).not.toHaveBeenCalled();
   });
 
   it("continues with the next prompt after rejecting unavailable authentication", async () => {

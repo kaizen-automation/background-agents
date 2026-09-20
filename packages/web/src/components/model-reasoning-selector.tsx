@@ -41,6 +41,8 @@ type ModelReasoningSelectorProps = {
   harness?: HarnessId;
   /** Adds an Agent row to the menu; leave unset once the session's harness is fixed. */
   onHarnessChange?: (harness: HarnessId) => void;
+  /** Harnesses offered in the Agent row; a single entry hides the row. */
+  harnesses?: readonly HarnessId[];
   disabled?: boolean;
 };
 
@@ -58,6 +60,7 @@ export function ModelReasoningSelector({
   onReasoningEffortChange,
   harness,
   onHarnessChange,
+  harnesses = HARNESS_IDS,
   disabled = false,
 }: ModelReasoningSelectorProps) {
   const isMobile = useIsMobile();
@@ -67,7 +70,8 @@ export function ModelReasoningSelector({
   const effortLabel = selectedEffort ? formatEffort(selectedEffort) : "Default";
   const modelLabel = formatModelNameLower(selectedModel);
   const harnessLabel = harness ? getHarnessLabel(harness) : null;
-  const canChangeHarness = harness !== undefined && onHarnessChange !== undefined;
+  const canChangeHarness =
+    harness !== undefined && onHarnessChange !== undefined && harnesses.length > 1;
   const triggerLabel = [
     harnessLabel ? `Agent, model and effort: ${harnessLabel}` : "Model and effort:",
     modelLabel,
@@ -161,7 +165,7 @@ export function ModelReasoningSelector({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {mobileView === "agent" && harness && onHarnessChange ? (
-                <HarnessOptions value={harness} onChange={onHarnessChange} />
+                <HarnessOptions value={harness} harnesses={harnesses} onChange={onHarnessChange} />
               ) : mobileView === "model" ? (
                 <ModelOptions items={items} value={selectedModel} onChange={onModelChange} />
               ) : (
@@ -186,7 +190,11 @@ export function ModelReasoningSelector({
                   </span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent align="end" collisionPadding={8} className="w-48">
-                  <HarnessOptions value={harness} onChange={onHarnessChange} />
+                  <HarnessOptions
+                    value={harness}
+                    harnesses={harnesses}
+                    onChange={onHarnessChange}
+                  />
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             )}
@@ -229,9 +237,11 @@ export function ModelReasoningSelector({
 
 function HarnessOptions({
   value,
+  harnesses,
   onChange,
 }: {
   value: HarnessId;
+  harnesses: readonly HarnessId[];
   onChange: (harness: HarnessId) => void;
 }) {
   return (
@@ -241,7 +251,7 @@ function HarnessOptions({
         if (isValidHarness(next)) onChange(next);
       }}
     >
-      {HARNESS_IDS.map((candidate) => (
+      {harnesses.map((candidate) => (
         <DropdownMenuRadioItem key={candidate} value={candidate}>
           <HarnessName harness={candidate} />
         </DropdownMenuRadioItem>

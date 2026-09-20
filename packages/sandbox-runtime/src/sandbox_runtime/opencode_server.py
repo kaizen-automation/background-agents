@@ -15,6 +15,7 @@ import httpx
 from .constants import OPENCODE_PORT
 from .git_excludes import install_runtime_git_excludes
 from .mcp_packages import McpPackageInstaller
+from .opencode_model_config import build_model_config
 from .process_output import iter_process_lines
 from .sandbox_bin import install_bin_scripts
 
@@ -27,6 +28,23 @@ if TYPE_CHECKING:
 _LOG_FORWARD_STREAM_LIMIT_BYTES = 1024 * 1024
 AGENT_TOOLS_GATED_ON_ENV = {"slack-notify.js": "AGENT_SLACK_NOTIFY_ENABLED"}
 AGENT_TOOLS_REQUIRING_REPOSITORY: set[str] = set()
+
+AZURE_PROVIDER_ID = "azure"
+AZURE_RESOURCE_NAME_ENV = "AZURE_RESOURCE_NAME"
+
+
+def build_azure_provider_config(env: Mapping[str, str]) -> dict[str, Any]:
+    """OpenCode ``provider.azure`` block for Azure OpenAI (Azure AI Foundry).
+
+    OpenCode reads ``AZURE_API_KEY`` from the environment; the resource name
+    (``https://<resource>.openai.azure.com``) is pinned via ``options.resourceName``
+    rather than left to env discovery. The Azure deployment name must equal the
+    model id.
+    """
+    resource_name = env.get(AZURE_RESOURCE_NAME_ENV, "").strip()
+    if not resource_name:
+        return {}
+    return {"options": {"resourceName": resource_name}}
 
 
 def resolve_opencode_global_config_dir() -> Path:
@@ -393,26 +411,13 @@ class OpenCodeServer:
 
         # Build OpenCode config from session settings
         opencode_config: dict[str, Any] = {
-            "model": f"{self.provider}/{self.model}",
+            **build_model_config(self.provider, self.model),
             "permission": {"*": {"*": "allow"}},
-            "provider": {
-                "anthropic": {
-                    "models": {
-                        model: {
-                            "variants": {
-                                effort: {"thinking": {"type": "enabled", "budgetTokens": budget}}
-                                for effort, budget in (("high", 16_000), ("max", 31_999))
-                            }
-                        }
-                        for model in (
-                            "claude-haiku-4-5",
-                            "claude-sonnet-4-5",
-                            "claude-opus-4-5",
-                        )
-                    }
-                }
-            },
         }
+        if opencode_config["model"] != f"{self.provider}/{self.model}":
+            self.log.info("opencode.model_routed", model=opencode_config["model"])
+        if self.provider == AZURE_PROVIDER_ID:
+            opencode_config["provider"][AZURE_PROVIDER_ID] = build_azure_provider_config(os.environ)
 
         # Inject MCP servers
         mcp_servers = self._resolve_mcp_servers()

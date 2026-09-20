@@ -98,6 +98,8 @@ module "control_plane_worker" {
       WORKER_URL                    = { value = local.control_plane_url }
       DEPLOYMENT_NAME               = { value = var.deployment_name }
       APP_NAME                      = { value = var.app_name }
+      MODEL_ALLOWLIST               = { value = join(",", var.model_allowlist) }
+      HARNESS_ALLOWLIST             = { value = join(",", var.harness_allowlist) }
       GITHUB_BOT_USERNAME           = { value = var.github_bot_username }
       SANDBOX_PROVIDER              = { value = var.sandbox_provider }
       SANDBOX_INACTIVITY_TIMEOUT_MS = { value = tostring(var.sandbox_inactivity_timeout_ms) }
