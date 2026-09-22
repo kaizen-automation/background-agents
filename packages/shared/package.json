@@ -62,6 +62,10 @@
       "import": "./dist/browser-auth-routes.js",
       "types": "./dist/browser-auth-routes.d.ts"
     },
+    "./tailnet-proxy": {
+      "import": "./dist/tailnet-proxy.js",
+      "types": "./dist/tailnet-proxy.d.ts"
+    },
     "./session-list-query": {
       "import": "./dist/session-list-query.js",
       "types": "./dist/session-list-query.d.ts"

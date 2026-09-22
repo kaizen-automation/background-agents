@@ -195,6 +195,9 @@ module "control_plane_worker" {
     local.google_enabled ? {
       GOOGLE_CLIENT_SECRET = { value = trimspace(var.google_client_secret) }
     } : {},
+    local.tailnet_only_enabled ? {
+      TAILNET_PROXY_TOKEN = { value = local.tailnet_proxy_token }
+    } : {},
     var.modal_api_secret != "" && trimspace(var.modal_workspace) != "" ? {
       MODAL_API_SECRET = { value = var.modal_api_secret }
     } : {},

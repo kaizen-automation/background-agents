@@ -56,6 +56,9 @@ export interface EnvConfig {
   SCM_PROVIDER?: string; // Source control provider for this deployment (default: github)
   WORKER_URL?: string; // Base URL for the worker (for callbacks)
   WEB_APP_URL?: string; // Base URL for the web app (for PR links)
+  // Set when the deployment is reachable only through its tailnet proxy
+  // (@open-inspect/shared/tailnet-proxy); browser WebSockets must carry it.
+  TAILNET_PROXY_TOKEN?: string;
   ALLOWED_USERS?: string;
   ALLOWED_EMAIL_DOMAINS?: string;
   ALLOWED_EMAILS?: string;

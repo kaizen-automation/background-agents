@@ -25,6 +25,24 @@ resource "terraform_data" "cloudflare_custom_domain_gate" {
   }
 }
 
+# Tailnet-only ingress needs both halves: the hostname rewrites the browser
+# URLs and the token lets the Workers tell proxied traffic from direct hits.
+# One without the other would either publish URLs nobody can reach or leave
+# the public hostnames open while claiming to be tailnet-only.
+resource "terraform_data" "tailnet_only_gate" {
+  lifecycle {
+    precondition {
+      condition     = (local.tailnet_host == "") == !local.tailnet_proxy_token_set
+      error_message = "tailnet_hostname and tailnet_proxy_token must be set together."
+    }
+
+    precondition {
+      condition     = !local.tailnet_only_enabled || var.web_platform == "cloudflare"
+      error_message = "Tailnet-only ingress requires web_platform = \"cloudflare\": the gate runs in the web Worker."
+    }
+  }
+}
+
 # Fail the plan when no access control is configured. Uses terraform_data with a
 # precondition so this is a hard error, not an advisory check-block warning.
 resource "terraform_data" "access_control_gate" {
