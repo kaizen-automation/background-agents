@@ -4,7 +4,12 @@
  * Cloudflare Workers entry point with Durable Objects for session management.
  */
 
+import {
+  tailnetGateDeniedResponse,
+  withoutTailnetProxyHeader,
+} from "@open-inspect/shared/tailnet-proxy";
 import { handleControlPlaneHttp } from "./cloudflare/http-host";
+import { admitWebSocketThroughTailnetGate } from "./cloudflare/tailnet-gate";
 import { createLogger } from "./logger";
 import { consumeJobBatch } from "./cloudflare/job-queue";
 import { createSessionRuntimeClient } from "./session/runtime-client";
@@ -35,6 +40,15 @@ export default {
     // WebSocket upgrade for session
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader?.toLowerCase() === "websocket") {
+      if (!admitWebSocketThroughTailnetGate(request, url, bindings.TAILNET_PROXY_TOKEN)) {
+        logger.warn("WebSocket refused outside the tailnet proxy", {
+          event: "ws.tailnet_denied",
+          http_path: url.pathname,
+          client_ip: request.headers.get("CF-Connecting-IP") || "unknown",
+        });
+        return tailnetGateDeniedResponse();
+      }
+      request = withoutTailnetProxyHeader(request);
       const metrics = createRequestMetrics();
       // eslint-disable-next-line no-restricted-syntax -- composition root: construct the request-scoped database adapter
       const db = instrumentSqlDatabase(bindings.DB, metrics);
@@ -43,7 +57,11 @@ export default {
 
     // Regular API request — Hono owns HTTP route selection while the neutral
     // admission/dispatch pipeline retains authentication and authorization.
-    return handleControlPlaneHttp(request, createCloudflareEnv(bindings), ctx);
+    return handleControlPlaneHttp(
+      withoutTailnetProxyHeader(request),
+      createCloudflareEnv(bindings),
+      ctx
+    );
   },
 
   /**

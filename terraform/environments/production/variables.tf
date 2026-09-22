@@ -34,6 +34,32 @@ variable "cloudflare_custom_domain" {
   }
 }
 
+variable "tailnet_hostname" {
+  description = "Tailscale MagicDNS hostname of the tailnet proxy (e.g. 'agents.tail1234.ts.net'). Set together with tailnet_proxy_token to make the deployment reachable only through the tailnet: the web app and browser WebSocket URLs move to this host and both Workers refuse requests that did not come through the proxy."
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      trimspace(var.tailnet_hostname) == "" ||
+      can(regex("(?i)^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", trimspace(var.tailnet_hostname)))
+    )
+    error_message = "tailnet_hostname must be a bare hostname such as 'agents.tail1234.ts.net' — no scheme, port, path, trailing dot, or whitespace."
+  }
+}
+
+variable "tailnet_proxy_token" {
+  description = "Shared secret the tailnet proxy sends on every upstream request. Set together with tailnet_hostname; generate with `openssl rand -hex 32`."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.tailnet_proxy_token) == "" || length(trimspace(var.tailnet_proxy_token)) >= 32
+    error_message = "tailnet_proxy_token must be at least 32 characters."
+  }
+}
+
 variable "cloudflare_worker_subdomain" {
   description = "Cloudflare Workers account subdomain (e.g. 'myaccount' — .workers.dev is appended automatically)"
   type        = string

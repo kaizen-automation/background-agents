@@ -21,10 +21,26 @@ locals {
   admission_allowlist_enabled = local.provider_neutral_admission_enabled || local.github_admission_enabled
   unsafe_allow_all_effective  = var.unsafe_allow_all_users && !local.admission_allowlist_enabled
 
+  # Tailnet-only ingress: browsers reach both Workers through one Tailscale
+  # node (deploy/tailnet-proxy), which serves the web app at the host root and
+  # the control plane under the path prefix below. Service-to-service traffic
+  # (web → control plane, sandboxes, bots, webhooks) keeps using the public
+  # control-plane URL, which the Worker gate leaves open for signed callers.
+  tailnet_host        = trimspace(var.tailnet_hostname)
+  tailnet_proxy_token = trimspace(var.tailnet_proxy_token)
+  # Whether the token is set is not itself secret; without nonsensitive() every
+  # URL derived from this flag would be sensitive too.
+  tailnet_proxy_token_set           = nonsensitive(local.tailnet_proxy_token != "")
+  tailnet_only_enabled              = local.tailnet_host != "" && local.tailnet_proxy_token_set
+  tailnet_control_plane_path_prefix = "/_control-plane"
+
   # URLs for cross-service configuration
   control_plane_host = "open-inspect-control-plane-${local.name_suffix}.${var.cloudflare_worker_subdomain}.workers.dev"
   control_plane_url  = "https://${local.control_plane_host}"
-  ws_url             = "wss://${local.control_plane_host}"
+  ws_url = (local.tailnet_only_enabled
+    ? "wss://${local.tailnet_host}${local.tailnet_control_plane_path_prefix}"
+    : "wss://${local.control_plane_host}"
+  )
 
   # Must match the deployed Worker's `name` and the custom-domain `service` binding.
   web_worker_name = "open-inspect-web-${local.name_suffix}"
@@ -85,7 +101,9 @@ locals {
   )
 
   # Web app URL depends on deployment platform
-  web_app_url = (var.web_platform == "cloudflare"
+  web_app_url = (local.tailnet_only_enabled
+    ? "https://${local.tailnet_host}"
+    : var.web_platform == "cloudflare"
     ? "https://${local.web_cloudflare_host}"
     : "https://open-inspect-${local.name_suffix}.vercel.app"
   )

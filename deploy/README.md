@@ -31,33 +31,35 @@ Doppler project `kaizen-code`, config `prd`, is the only place secrets live. The
 `TF_VAR_*` (or backend) environment variable that upstream Terraform already consumes. No tfvars
 file, fallback cache, or command-line argument ever carries a secret value.
 
-| Doppler secret                                                                     | Consumer                                    | Runtime variable / use                                           |
-| ---------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------- |
-| `CLOUDFLARE_ACCOUNT_ID`                                                            | Terraform provider, wrangler                | account for all Cloudflare resources                             |
-| `CLOUDFLARE_API_TOKEN`                                                             | Terraform provider, wrangler                | scoped token (see below)                                         |
-| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone `kaizenautomation.dev`                                      |
-| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | `kaizen-agents` → control-plane `*.workers.dev`                  |
-| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | `agents.kaizenautomation.dev` (web Worker)                       |
-| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state`                |
-| `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                                       |
-| `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                                              |
-| `MODAL_PROXY_NAME` (optional)                                                      | Modal secret `internal-api`                 | Modal Proxy every sandbox egresses through (static IPs)          |
-| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1` |
-| `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                   |
-| `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                     |
-| `AZURE_OPENAI_API_KEY` (optional, with the next)                                   | Modal secret `llm-api-keys`                 | sandbox `AZURE_API_KEY` (OpenCode harness, `azure/*` models)     |
-| `AZURE_OPENAI_RESOURCE_NAME` (optional, with the previous)                         | Modal secret `llm-api-keys`                 | sandbox `AZURE_RESOURCE_NAME` (Azure OpenAI resource)            |
-| `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                                  |
-| `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                                         |
-| `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                                     |
-| `GITHUB_CLIENT_ID`                                                                 | Worker var                                  | GitHub sign-in                                                   |
-| `GITHUB_CLIENT_SECRET`                                                             | Worker secret                               | `GITHUB_CLIENT_SECRET`                                           |
-| `ALLOWED_GITHUB_ORGS`                                                              | Worker var                                  | admission: active members of these orgs                          |
-| `NEXTAUTH_SECRET`                                                                  | Worker secret                               | `BROWSER_AUTH_SECRET` (session cookies)                          |
-| `TOKEN_ENCRYPTION_KEY`                                                             | Worker secret                               | encrypts per-user GitHub tokens                                  |
-| `REPO_SECRETS_ENCRYPTION_KEY`                                                      | Worker secret                               | encrypts Settings → Secrets in D1                                |
-| `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`                                                 | Worker secret                               | encrypts provider accounts — never change                        |
-| `MODAL_API_SECRET`                                                                 | Worker secret + Modal secret `internal-api` | control plane ↔ Modal auth                                       |
+| Doppler secret                                                                     | Consumer                                    | Runtime variable / use                                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID`                                                            | Terraform provider, wrangler                | account for all Cloudflare resources                                  |
+| `CLOUDFLARE_API_TOKEN`                                                             | Terraform provider, wrangler                | scoped token (see below)                                              |
+| `CLOUDFLARE_ZONE_ID`                                                               | Terraform                                   | zone `kaizenautomation.dev`                                           |
+| `CLOUDFLARE_WORKER_SUBDOMAIN`                                                      | Terraform                                   | `kaizen-agents` → control-plane `*.workers.dev`                       |
+| `CLOUDFLARE_CUSTOM_DOMAIN`                                                         | Terraform                                   | `agents.kaizenautomation.dev` (web Worker)                            |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`                                         | Terraform S3 backend                        | state in R2 bucket `open-inspect-terraform-state`                     |
+| `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`                                             | Terraform → `modal` CLI                     | deploy Modal app + secrets                                            |
+| `MODAL_WORKSPACE` (+ optional `MODAL_ENVIRONMENT`, `MODAL_ENVIRONMENT_WEB_SUFFIX`) | Terraform                                   | Modal endpoint URLs                                                   |
+| `MODAL_PROXY_NAME` (optional)                                                      | Modal secret `internal-api`                 | Modal Proxy every sandbox egresses through (static IPs)               |
+| `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1`      |
+| `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                        |
+| `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                          |
+| `AZURE_OPENAI_API_KEY` (optional, with the next)                                   | Modal secret `llm-api-keys`                 | sandbox `AZURE_API_KEY` (OpenCode harness, `azure/*` models)          |
+| `AZURE_OPENAI_RESOURCE_NAME` (optional, with the previous)                         | Modal secret `llm-api-keys`                 | sandbox `AZURE_RESOURCE_NAME` (Azure OpenAI resource)                 |
+| `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                                       |
+| `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                                              |
+| `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                                          |
+| `GITHUB_CLIENT_ID`                                                                 | Worker var                                  | GitHub sign-in                                                        |
+| `GITHUB_CLIENT_SECRET`                                                             | Worker secret                               | `GITHUB_CLIENT_SECRET`                                                |
+| `ALLOWED_GITHUB_ORGS`                                                              | Worker var                                  | admission: active members of these orgs                               |
+| `NEXTAUTH_SECRET`                                                                  | Worker secret                               | `BROWSER_AUTH_SECRET` (session cookies)                               |
+| `TOKEN_ENCRYPTION_KEY`                                                             | Worker secret                               | encrypts per-user GitHub tokens                                       |
+| `REPO_SECRETS_ENCRYPTION_KEY`                                                      | Worker secret                               | encrypts Settings → Secrets in D1                                     |
+| `PROVIDER_ACCOUNTS_ENCRYPTION_KEY`                                                 | Worker secret                               | encrypts provider accounts — never change                             |
+| `MODAL_API_SECRET`                                                                 | Worker secret + Modal secret `internal-api` | control plane ↔ Modal auth                                            |
+| `TAILNET_HOSTNAME` (optional, with the next)                                       | Terraform                                   | ts.net host browsers use; rewrites `WEB_APP_URL`/`NEXT_PUBLIC_WS_URL` |
+| `TAILNET_PROXY_TOKEN` (optional, with the previous)                                | Worker secret (web + control plane), proxy  | tailnet-only ingress gate (see below)                                 |
 
 Generated secrets are 32 random bytes, base64 (`openssl rand -base64 32`), created straight into
 Doppler with `doppler secrets set NAME="$(openssl rand -base64 32)" --silent`.
@@ -235,6 +237,37 @@ After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 ```bash
 deploy/doppler/deploy.sh run npm run rbac:bootstrap-owner -- --database <d1_database_name> --user <user-id> --execute
 ```
+
+## Tailnet-only access
+
+With `TAILNET_HOSTNAME` and `TAILNET_PROXY_TOKEN` set, the instance is reachable only from the
+Tailscale network. A Tailscale node (`deploy/tailnet-proxy`, a Render worker in the `kaizen` repo
+next to `tailscale-subnet-router-production`) runs `tailscale serve` → Caddy, which reverse-proxies
+the web Worker at `https://<TAILNET_HOSTNAME>/` and the control plane at
+`https://<TAILNET_HOSTNAME>/_control-plane/`, stamping every upstream request with
+`X-OpenInspect-Tailnet-Proxy: <TAILNET_PROXY_TOKEN>`. The web Worker refuses every request without
+the token; the control plane refuses browser WebSocket upgrades without it. Everything else that
+reaches the control plane directly — the web Worker's signed calls, sandboxes (`?type=sandbox`),
+bots, GitHub webhooks — is already authenticated per request and keeps using the public
+`*.workers.dev` URL. Who can reach the proxy is decided by Tailscale ACLs on the node's tag.
+
+Enabling it:
+
+1. Tailscale admin → DNS: MagicDNS and HTTPS certificates on. Access controls: a tag for the node
+   (e.g. `tag:open-inspect-proxy`), an ACL granting engineers `tcp:443` to it, and a reusable auth
+   key for that tag.
+2. Doppler: `TAILNET_PROXY_TOKEN="$(openssl rand -hex 32)"` and
+   `TAILNET_HOSTNAME=<TS_HOSTNAME>.<tailnet>.ts.net`.
+3. Render (`kaizen/render.yaml`): worker built from `deploy/tailnet-proxy/Dockerfile` with a
+   persistent disk on `/var/lib/tailscale` and env `TS_AUTHKEY`, `TS_HOSTNAME`, `WEB_ORIGIN`
+   (`https://agents.kaizenautomation.dev`), `CONTROL_PLANE_ORIGIN` (control-plane `*.workers.dev`
+   URL), `TAILNET_PROXY_TOKEN` (same value as Doppler).
+4. GitHub App → OAuth callback URL: `https://<TAILNET_HOSTNAME>/api/auth/callback/github`.
+5. `deploy/doppler/deploy.sh apply 2`. From then on `agents.kaizenautomation.dev` answers `403` to
+   everything; the proxy's own probe is `https://<TAILNET_HOSTNAME>/_tailnet-proxy/healthz`.
+
+To go public again, remove both Doppler secrets and apply; the Worker secret is deleted and URLs
+revert. Rotate the token by changing it in Doppler and on Render, then applying.
 
 ## Limits
 

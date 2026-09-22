@@ -1,0 +1,39 @@
+# Plain HTTP behind `tailscale serve`, which owns TLS on the ts.net hostname.
+{
+	auto_https off
+	admin off
+}
+
+:{$CADDY_LISTEN_PORT} {
+	log {
+		output stdout
+		format json
+	}
+
+	# Liveness probe for the hosting platform; never forwarded upstream.
+	handle /_tailnet-proxy/healthz {
+		respond "ok" 200
+	}
+
+	# Browser WebSockets: wss://<host><CONTROL_PLANE_PATH_PREFIX>/sessions/<id>/ws
+	# The prefix is stripped so the control plane sees its own paths.
+	handle_path {$CONTROL_PLANE_PATH_PREFIX}/* {
+		reverse_proxy {$CONTROL_PLANE_ORIGIN} {
+			import upstream
+		}
+	}
+
+	handle {
+		reverse_proxy {$WEB_ORIGIN} {
+			import upstream
+		}
+	}
+}
+
+# Upstreams are https:// origins, so Caddy uses TLS with the origin's SNI.
+(upstream) {
+	header_up Host {upstream_hostport}
+	header_up X-Forwarded-Host {http.request.host}
+	# The proxy is the only holder of the token; a client-supplied value is overwritten.
+	header_up X-OpenInspect-Tailnet-Proxy {$TAILNET_PROXY_TOKEN}
+}

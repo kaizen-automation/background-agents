@@ -32,6 +32,7 @@ resource "null_resource" "web_app_cloudflare_secrets" {
   triggers = {
     secrets_hash = sha256(join(",", [
       random_password.service_auth_secret_web.result,
+      local.tailnet_proxy_token,
     ]))
   }
 
@@ -44,6 +45,7 @@ resource "null_resource" "web_app_cloudflare_secrets" {
       CLOUDFLARE_ACCOUNT_ID = var.cloudflare_account_id
       WORKER_NAME           = local.web_worker_name
       SERVICE_AUTH_SECRET   = random_password.service_auth_secret_web.result
+      TAILNET_PROXY_TOKEN   = local.tailnet_proxy_token
     }
   }
 
@@ -57,7 +59,7 @@ resource "local_file" "web_app_wrangler_production" {
   filename = "${var.project_root}/packages/web/wrangler.production.toml"
   content  = <<-TOML
     name = "${local.web_worker_name}"
-    main = ".open-next/worker.js"
+    main = "worker/index.mjs"
     compatibility_date = "2025-08-15"
     compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
