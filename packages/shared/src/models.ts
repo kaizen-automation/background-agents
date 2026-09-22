@@ -238,6 +238,24 @@ export const MODEL_CATALOG = [
           default: GPT_5_6_DEFAULT_REASONING_EFFORT,
         },
       },
+      {
+        id: "azure/gpt-6-sol",
+        name: "GPT-6 Sol",
+        description: "Frontier GPT-6 model for complex professional work via Azure OpenAI",
+        reasoning: {
+          efforts: ["low", "medium", "high", "xhigh", "max"],
+          default: "medium",
+        },
+      },
+      {
+        id: "azure/gpt-6-luna",
+        name: "GPT-6 Luna",
+        description: "Fast, cost-efficient GPT-6 model for high-volume work via Azure OpenAI",
+        reasoning: {
+          efforts: ["low", "medium", "high", "xhigh", "max"],
+          default: "medium",
+        },
+      },
     ],
   },
   {
