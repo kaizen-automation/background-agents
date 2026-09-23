@@ -47,7 +47,13 @@ const OPENAI_MODELS = [
 
 const XAI_MODELS = ["xai/grok-4.5", "xai/grok-4.6", "xai/grok-build-0.1"] as const;
 
-const AZURE_MODELS = ["azure/gpt-6-astra", "azure/gpt-5.6-sol", "azure/gpt-5.6-terra"] as const;
+const AZURE_MODELS = [
+  "azure/gpt-6-astra",
+  "azure/gpt-5.6-sol",
+  "azure/gpt-5.6-terra",
+  "azure/gpt-6-sol",
+  "azure/gpt-6-luna",
+] as const;
 
 const ZEN_MODELS = [
   "opencode/kimi-k2.5",

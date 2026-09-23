@@ -45,8 +45,7 @@ file, fallback cache, or command-line argument ever carries a secret value.
 | `AWS_BEARER_TOKEN_BEDROCK`                                                         | Modal secret `llm-api-keys`                 | sandbox `AWS_BEARER_TOKEN_BEDROCK` + `CLAUDE_CODE_USE_BEDROCK=1` |
 | `AWS_REGION`                                                                       | Modal secret `llm-api-keys`                 | sandbox `AWS_REGION` (Bedrock endpoint region)                   |
 | `ANTHROPIC_API_KEY` (alternative to the two above)                                 | Modal secret `llm-api-keys`                 | sandbox `ANTHROPIC_API_KEY` (Claude harness)                     |
-| `AZURE_OPENAI_API_KEY` (optional, with the next)                                   | Modal secret `llm-api-keys`                 | sandbox `AZURE_API_KEY` (OpenCode harness, `azure/*` models)     |
-| `AZURE_OPENAI_RESOURCE_NAME` (optional, with the previous)                         | Modal secret `llm-api-keys`                 | sandbox `AZURE_RESOURCE_NAME` (Azure OpenAI resource)            |
+| `AZURE_OPENAI_API_KEY` (optional)                                                  | Modal secret `llm-api-keys`                 | sandbox `AZURE_API_KEY` (OpenCode harness, `azure/*` models)     |
 | `GITHUB_APP_ID`                                                                    | Worker secret + Modal secret `github-app`   | `GITHUB_APP_ID`                                                  |
 | `GITHUB_APP_PRIVATE_KEY` (PKCS#8)                                                  | Worker secret + Modal secret `github-app`   | `GITHUB_APP_PRIVATE_KEY`                                         |
 | `GITHUB_APP_INSTALLATION_ID`                                                       | Worker secret + Modal secret `github-app`   | `GITHUB_APP_INSTALLATION_ID`                                     |
@@ -123,28 +122,31 @@ resource instead of api.openai.com. OpenCode's built-in `azure` provider authent
 resource name in the generated opencode.json (`provider.azure.options.resourceName`,
 `build_azure_provider_config` in `packages/sandbox-runtime/.../opencode_server.py`). Azure models
 live under their own catalog group ("Azure OpenAI" in Settings → Models: `azure/gpt-6-astra`,
-`azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`); the existing `openai/*` entries keep going to
-api.openai.com.
+`azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`, `azure/gpt-6-sol`, `azure/gpt-6-luna`); the existing
+`openai/*` entries keep going to api.openai.com.
 
 - Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
-  Keys and Endpoint) and `AZURE_OPENAI_RESOURCE_NAME` (the `<RESOURCE_NAME>` in
-  `https://<RESOURCE_NAME>.openai.azure.com/`). Both or neither; `check` enforces it, as does the
-  Terraform validation on `azure_openai_resource_name`. They map to `TF_VAR_azure_openai_api_key` /
-  `TF_VAR_azure_openai_resource_name` and reach only Modal sandboxes
-  (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's Bedrock/Anthropic
-  credential.
+  Keys and Endpoint). The resource name is not a secret and lives in code:
+  `azure_openai_resource_name` in `deploy/production.tfvars.json` (the `<RESOURCE_NAME>` in
+  `https://<RESOURCE_NAME>.openai.azure.com/`, currently `kaizen-openai-westus3`). Both or neither;
+  `check` enforces it, as does the Terraform validation on `azure_openai_resource_name`. Both reach
+  only Modal sandboxes (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's
+  Bedrock/Anthropic credential.
 - **Deployment name must equal the model name.** OpenCode addresses Azure deployments by the model
   id, so before enabling an `azure/<model>` entry create a deployment named exactly `<model>` in the
   Foundry resource: `gpt-6-astra` (model `gpt-6-astra`) for `azure/gpt-6-astra`, `gpt-5.6-sol`
-  (model `gpt-5.6-sol`) for `azure/gpt-5.6-sol`, `gpt-5.6-terra` for `azure/gpt-5.6-terra`. Any
-  further `azure/<model>` catalog entry needs a same-named deployment as well.
+  (model `gpt-5.6-sol`) for `azure/gpt-5.6-sol`, `gpt-5.6-terra` for `azure/gpt-5.6-terra`,
+  `gpt-6-sol` / `gpt-6-luna` (model version 2026-09-22) for `azure/gpt-6-sol` / `azure/gpt-6-luna`.
+  Any further `azure/<model>` catalog entry needs a same-named deployment as well. The resource is
+  global (`azure_openai_resource_name`), not per model, so every allowlisted `azure/*` model must be
+  deployed on that one resource.
 - Then expose the model: append the canonical id (`azure/gpt-6-astra`, `azure/gpt-5.6-sol`, ...) to
   `model_allowlist` in `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`)
   and `apply`. Until then the model stays hidden; once allowlisted it is enabled by default
   (Settings → Models only needed to turn it off). Sessions pick it by its `azure/...` id on the
   OpenCode harness; the Claude harness cannot run it.
-- Removing Azure: clear both Doppler secrets and `apply` (the Modal secret keeps both names with
-  empty values) and drop the `azure/*` ids from `model_allowlist`.
+- Removing Azure: clear the Doppler key, blank `azure_openai_resource_name` and `apply` (the Modal
+  secret keeps both names with empty values) and drop the `azure/*` ids from `model_allowlist`.
 
 ### Model & harness allowlist
 
@@ -153,8 +155,9 @@ api.openai.com.
 - `harness_allowlist = ["opencode"]` — OpenCode is the only agent; the web UI hides the Agent picker
   and the control plane rejects `harness: claude` on every path.
 - `model_allowlist` — the Bedrock-verified Claude models (Sonnet 4.6, Opus 4.7, Sonnet 5) plus
-  `azure/gpt-6-astra`, `azure/gpt-5.6-sol` and `azure/gpt-5.6-terra` (Azure OpenAI resource
-  `kaizen-openai`, deployments `gpt-6-astra`, `gpt-5.6-sol` and `gpt-5.6-terra`).
+  `azure/gpt-6-astra`, `azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`, `azure/gpt-6-sol` and
+  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` =
+  `kaizen-openai-westus3`).
 
 Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
 (`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as

@@ -66,7 +66,6 @@ OPTIONAL_SECRETS=(
   AWS_BEARER_TOKEN_BEDROCK
   AWS_REGION
   AZURE_OPENAI_API_KEY
-  AZURE_OPENAI_RESOURCE_NAME
   MODAL_ENVIRONMENT
   MODAL_ENVIRONMENT_WEB_SUFFIX
   MODAL_PROXY_NAME
@@ -89,8 +88,9 @@ OPTIONAL_SECRETS=(
 NON_TF_SECRETS=(R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY)
 # The Claude harness needs exactly one of these model credentials.
 MODEL_CREDENTIAL_SECRETS=(ANTHROPIC_API_KEY AWS_BEARER_TOKEN_BEDROCK)
-# Azure OpenAI for the OpenCode harness: optional, but both or neither.
-AZURE_OPENAI_SECRETS=(AZURE_OPENAI_API_KEY AZURE_OPENAI_RESOURCE_NAME)
+# Azure OpenAI for the OpenCode harness: optional. The key lives in Doppler, the
+# (non-secret) resource name in OI_TFVARS_JSON as azure_openai_resource_name.
+AZURE_OPENAI_SECRETS=(AZURE_OPENAI_API_KEY)
 
 log() { printf '[deploy] %s\n' "$*" >&2; }
 die() { log "error: $*"; exit 1; }
@@ -152,18 +152,19 @@ check_model_credential() {
 # Azure OpenAI is opt-in; a key without its resource name (or vice versa) cannot
 # reach any deployment and is rejected before Terraform sees it.
 check_azure_openai_credential() {
-  local set_names
+  local set_names resource
   set_names="$(doppler secrets --json $(doppler_args) |
     jq -r --argjson names "$(printf '%s\n' "${AZURE_OPENAI_SECRETS[@]}" | jq -R . | jq -s .)" \
       'to_entries | map(select((.key as $k | $names | index($k)) and (.value.computed // "" | gsub("\\s"; "") != ""))) | .[].key')"
+  resource="$(jq -r '.azure_openai_resource_name // "" | gsub("\\s"; "")' "$OI_TFVARS_JSON")"
   local has_key=0 has_resource=0
   grep -qx AZURE_OPENAI_API_KEY <<<"$set_names" && has_key=1
-  grep -qx AZURE_OPENAI_RESOURCE_NAME <<<"$set_names" && has_resource=1
+  [[ -n "$resource" ]] && has_resource=1
   if ((has_key != has_resource)); then
-    die "set both or neither of ${AZURE_OPENAI_SECRETS[*]} in ${DOPPLER_PROJECT}/${DOPPLER_CONFIG}"
+    die "set both or neither of AZURE_OPENAI_API_KEY (${DOPPLER_PROJECT}/${DOPPLER_CONFIG}) and azure_openai_resource_name (${OI_TFVARS_JSON})"
   fi
   if ((has_key)); then
-    log "azure openai: configured (OpenCode harness, azure/* models)"
+    log "azure openai: configured (resource ${resource}; OpenCode harness, azure/* models)"
   else
     log "azure openai: not configured"
   fi

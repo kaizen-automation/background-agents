@@ -383,7 +383,7 @@ variable "azure_openai_api_key" {
 }
 
 variable "azure_openai_resource_name" {
-  description = "Azure OpenAI resource name: the <RESOURCE_NAME> in https://<RESOURCE_NAME>.openai.azure.com/. Injected into Modal session sandboxes as AZURE_RESOURCE_NAME. Each azure/* catalog model needs a deployment of the same name in this resource. Required when azure_openai_api_key is set; must be blank otherwise."
+  description = "Azure OpenAI resource name: the <RESOURCE_NAME> in https://<RESOURCE_NAME>.openai.azure.com/. Not a secret: set it in deploy/production.tfvars.json. Injected into Modal session sandboxes as AZURE_RESOURCE_NAME. Each azure/* catalog model needs a deployment of the same name in this resource. Required when azure_openai_api_key is set; must be blank otherwise."
   type        = string
   default     = ""
   nullable    = false
