@@ -17,7 +17,7 @@ import {
   type SessionTimelineEvent,
 } from "@open-inspect/shared/types/server-messages";
 
-export const DEFAULT_REPLAY_LIMIT = 500;
+export const DEFAULT_REPLAY_LIMIT = 100;
 const DEFAULT_HISTORY_LIMIT = 200;
 const MIN_HISTORY_LIMIT = 1;
 const MAX_HISTORY_LIMIT = 500;
