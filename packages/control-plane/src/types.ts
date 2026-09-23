@@ -15,6 +15,9 @@ import type { ObjectStorage } from "./storage/object-storage";
  */
 export interface EnvConfig {
   // Secrets
+  SANDBOX_DOPPLER_TOKEN?: string; // Control-plane only; never passed to sandboxes
+  SANDBOX_DOPPLER_REPOSITORIES?: string; // Exact comma-separated owner/repo targets
+  SANDBOX_DOPPLER_ENVIRONMENT_IDS?: string; // Explicit environment launch targets
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;

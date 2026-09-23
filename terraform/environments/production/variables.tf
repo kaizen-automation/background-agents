@@ -893,3 +893,22 @@ variable "unsafe_allow_all_users" {
   type        = bool
   default     = false
 }
+
+variable "sandbox_doppler_token" {
+  description = "Read-only config-scoped Doppler service token held only by the control plane."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "sandbox_doppler_repositories" {
+  description = "Exact owner/repo names authorized for runtime Doppler secrets (repo launches only)."
+  type        = list(string)
+  default     = []
+}
+
+variable "sandbox_doppler_environment_ids" {
+  description = "Environment IDs explicitly authorized for runtime Doppler secrets."
+  type        = list(string)
+  default     = []
+}

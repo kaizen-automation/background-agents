@@ -297,3 +297,39 @@ $0 base plan · Doppler free/Developer tier · Bedrock $0 base (on-demand) → *
 Variable: Bedrock Claude tokens (dominant; same list price as the Anthropic API, billed to AWS) ·
 Modal sandbox CPU/memory-seconds (≈ $0.05–0.15 per sandbox-hour at 2 vCPU / 4 GiB, plus image
 builds) · Cloudflare request / DO duration above the included quota.
+
+### Inject sandbox secrets from Doppler at launch
+
+The control plane can fetch resolved secrets from a dedicated Doppler config and pass their values
+through the existing sandbox environment injection path. The sandbox never needs a Doppler token.
+This is a runtime-only source: values are not written to D1 or supplied to image builds. Each
+resolution fetches current values; a failed fetch fails the launch rather than falling back to stale
+credentials. Existing running sandboxes retain their launch environment.
+
+For Kaizen, create a read-only service token scoped to `kaizen-code-sandbox/prd` and store it as
+`SANDBOX_DOPPLER_TOKEN` in the **deployment** project `kaizen-code/prd`. The deployment wrapper maps
+it to Terraform's `sandbox_doppler_token` secret, bound only to the control-plane Worker. Do not put
+this token in global, repo, environment, or image-build secrets.
+
+Set `sandbox_doppler_repositories = ["kaizen-automation/kaizen"]` in the deployment tfvars.
+Environment-launched sessions require a separate explicit `sandbox_doppler_environment_ids`
+allowlist; membership of an allowed repository does not implicitly authorize an environment. Empty
+allowlists disable fetching. An allowed target without a token fails closed.
+
+Doppler values override stored global/repo/environment secrets for authorized targets. Legacy
+`DOPPLER_*` and `SANDBOX_DOPPLER_*` keys are removed from their merged runtime environment,
+including Doppler metadata. The existing aggregate secret-size limit still applies. The fetch uses a
+fixed HTTPS endpoint, rejects redirects, bounds response size, and has a ten-second timeout; errors
+never include response bodies or credential values.
+
+Before cutover, remove old Doppler tokens from Inspect's secret stores and rebuild any images that
+previously persisted those tokens. Setup/start hooks must consume the already-injected environment
+instead of running `doppler run` or downloading configuration. Image builds should receive only
+separately scoped build credentials (such as registry access), not this runtime config containing
+database credentials. Keep production replica access under its separate key; it does not replace the
+local development `DB_*` settings.
+
+Deploy the control-plane change before enabling the allowlist and token. Verify an authorized new
+session receives expected keys, has no Doppler token, and can start the development app without
+Doppler. Verify unrelated repositories and unapproved environments receive no runtime Doppler
+secrets. Local tests use synthetic credentials; live launch verification is still required.
