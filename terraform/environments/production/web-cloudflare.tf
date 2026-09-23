@@ -64,6 +64,10 @@ resource "local_file" "web_app_wrangler_production" {
     # A custom-domain deployment has one canonical browser origin.
     workers_dev = ${local.web_custom_domain_enabled ? "false" : "true"}
 
+    [observability]
+    enabled = true
+    head_sampling_rate = 1
+
     [vars]
     CONTROL_PLANE_URL = "${local.control_plane_url}"
     NEXT_PUBLIC_WS_URL = "${local.ws_url}"
