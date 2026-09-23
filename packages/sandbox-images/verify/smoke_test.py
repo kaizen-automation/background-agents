@@ -17,6 +17,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+# Sent before reading the server banner: libvncserver sniffs the first client bytes
+# to tell WebSocket from raw RFB clients, so a silent probe can be dropped.
+RFB_CLIENT_VERSION = b"RFB 003.008\n"
+
 PNPM_GLOBAL_PROBE = r"""
 import json, os, pathlib, shutil, subprocess, tempfile, uuid
 name = "oi-image-probe-" + uuid.uuid4().hex
@@ -118,6 +122,7 @@ class Probe:
                         raise RuntimeError("Desktop process exited during verification")
                     try:
                         with socket.create_connection(("127.0.0.1", port), timeout=1) as connection:
+                            connection.sendall(RFB_CLIENT_VERSION)
                             if not connection.recv(12).startswith(b"RFB "):
                                 raise RuntimeError("VNC server did not speak RFB")
                             break
@@ -186,10 +191,10 @@ def verify_rfb_proxy(port: int) -> None:
         close_timeout=1,
         proxy=None,
     ) as connection:
+        connection.send(RFB_CLIENT_VERSION)
         banner = connection.recv(timeout=5)
         if not isinstance(banner, bytes) or not banner.startswith(b"RFB ") or len(banner) != 12:
             raise RuntimeError("Desktop WebSocket proxy did not deliver an RFB banner")
-        connection.send(banner)
         security = connection.recv(timeout=5)
         if not isinstance(security, bytes) or len(security) < 2 or security[0] == 0:
             raise RuntimeError("Desktop WebSocket proxy did not complete the RFB version exchange")
