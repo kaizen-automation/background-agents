@@ -3,7 +3,7 @@
 import runpy
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, call
 
 import pytest
 
@@ -102,7 +102,8 @@ def test_desktop_requires_websocket_rfb_exchange(monkeypatch, banner, security, 
     monkeypatch.setitem(sys.modules, "websockets.sync.client", Mock(connect=connect))
     if valid:
         verification["verify_rfb_proxy"](12345)
-        connection.send.assert_called_once_with(banner)
+        connection.send.assert_called_once_with(b"RFB 003.008\n")
+        assert connection.method_calls[0] == call.send(b"RFB 003.008\n")
         connect.assert_called_once_with(
             "ws://127.0.0.1:12345/websockify",
             subprotocols=["binary"],
