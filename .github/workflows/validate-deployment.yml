@@ -6,6 +6,7 @@ on:
     paths:
       - "deploy/**"
       - "terraform/**"
+      - "scripts/deploy-doppler.test.mjs"
       - ".github/workflows/deploy-production.yml"
       - ".github/workflows/validate-deployment.yml"
       - "!**/*.md"
@@ -30,6 +31,14 @@ jobs:
 
       - name: Check deployment shell syntax
         run: find deploy -type f -name '*.sh' -exec bash -n {} +
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Test deployment wrapper behavior
+        run: node --test scripts/deploy-doppler.test.mjs
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4

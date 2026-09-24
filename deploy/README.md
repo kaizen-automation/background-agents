@@ -237,8 +237,10 @@ organization secret. Everything else is read from Doppler at run time. A missing
 secret fails the deployment before dependency installation.
 
 Pull requests run secret-free deployment validation in `.github/workflows/validate-deployment.yml`
-and the existing TypeScript, Python, and Terraform CI workflows. They do not run the Doppler
-wrapper or a production Terraform plan. The production token is passed only to the credential
+and the existing TypeScript, Python, and Terraform CI workflows. Wrapper behavior tests run the
+real script with synthetic secrets and recording CLI doubles to verify secret mapping, build order,
+plan/apply arguments, and failure handling. Run them with `node --test scripts/deploy-doppler.test.mjs`
+(using Bash 4+). PRs do not fetch Doppler secrets or run a production Terraform plan. The production token is passed only to the credential
 check and deployment steps, not dependency installation. Manual deployment from another branch
 is skipped by the workflow and blocked by the environment policy.
 
