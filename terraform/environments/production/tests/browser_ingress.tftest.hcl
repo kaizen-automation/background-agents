@@ -47,7 +47,7 @@ variables {
 run "disabled_by_default" {
   command = plan
   assert {
-    condition     = length(local.browser_access_bindings) == 0 && !var.require_browser_gateway
+    condition     = alltrue([for name in ["ACCESS_ISSUER", "ACCESS_AUDIENCE", "ACCESS_SERVICE_TOKEN_CLIENT_ID"] : !contains(keys(module.control_plane_worker.plain_text_bindings), name)]) && module.control_plane_worker.plain_text_bindings["REQUIRE_BROWSER_GATEWAY"] == "false"
     error_message = "Existing deployments must not be cut over implicitly."
   }
 }
@@ -60,15 +60,15 @@ run "configure_existing_app_before_cutover" {
     gateway_access_client_id = "test.access"
   }
   assert {
-    condition     = length(local.browser_access_bindings) == 3 && !var.require_browser_gateway
+    condition     = module.control_plane_worker.plain_text_bindings["REQUIRE_BROWSER_GATEWAY"] == "false"
     error_message = "Configuring verification must not close the old browser path."
   }
   assert {
-    condition     = local.browser_access_bindings.ACCESS_AUDIENCE.value == var.browser_access_audience
+    condition     = module.control_plane_worker.plain_text_bindings["ACCESS_AUDIENCE"] == var.browser_access_audience
     error_message = "The existing application AUD must reach the Worker."
   }
   assert {
-    condition     = local.browser_access_bindings.ACCESS_ISSUER.value == var.access_team_domain && local.browser_access_bindings.ACCESS_SERVICE_TOKEN_CLIENT_ID.value == var.gateway_access_client_id
+    condition     = module.control_plane_worker.plain_text_bindings["ACCESS_ISSUER"] == var.access_team_domain && module.control_plane_worker.plain_text_bindings["ACCESS_SERVICE_TOKEN_CLIENT_ID"] == var.gateway_access_client_id
     error_message = "The existing issuer and gateway identity must reach the Worker."
   }
 }
