@@ -1,6 +1,7 @@
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 import path from "path";
+import { generateKeyPair, exportJWK } from "jose";
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 
@@ -39,6 +40,10 @@ export default defineConfig({
   plugins: [
     cloudflareTest(async () => {
       const migrations = await readD1Migrations(migrationsPath);
+      // Ephemeral Access identity used only by the browser boundary tests.
+      const accessKeys = await generateKeyPair("RS256", { extractable: true });
+      const accessPublicKey = await exportJWK(accessKeys.publicKey);
+      const accessPrivateKey = await exportJWK(accessKeys.privateKey);
 
       return {
         wrangler: {
@@ -51,6 +56,11 @@ export default defineConfig({
           compatibilityFlags: ["nodejs_compat"],
           async outboundService(request: Request) {
             const url = new URL(request.url);
+            if (url.href === "https://test.cloudflareaccess.com/cdn-cgi/access/certs") {
+              return Response.json({
+                keys: [{ ...accessPublicKey, kid: "integration", alg: "RS256" }],
+              });
+            }
             if (url.hostname.endsWith(".modal.run")) {
               return new Response("Modal is unavailable in integration tests", { status: 404 });
             }
@@ -161,6 +171,7 @@ export default defineConfig({
           },
           queueProducers: ["IMAGE_BUILD_FINALIZATION_QUEUE"],
           bindings: {
+            TEST_ACCESS_PRIVATE_JWK: JSON.stringify(accessPrivateKey),
             IMAGE_CALLBACK_TOKEN_PEPPER: "test-callback-pepper",
             SERVICE_AUTH_SECRET_WEB: "test-service-secret-web",
             SERVICE_AUTH_SECRET_SLACK_BOT: "test-service-secret-slack-bot",

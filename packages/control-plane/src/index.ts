@@ -4,6 +4,9 @@
  * Cloudflare Workers entry point with Durable Objects for session management.
  */
 
+import { handleBrowserIngress } from "./cloudflare/browser-ingress";
+import { isSandboxWebSocketRequest } from "./cloudflare/websocket-ingress";
+
 import { handleControlPlaneHttp } from "./cloudflare/http-host";
 import { createLogger } from "./logger";
 import { consumeJobBatch } from "./cloudflare/job-queue";
@@ -32,9 +35,22 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url);
 
+    // Authenticate the protected namespace on every host, including preview URLs.
+    if (url.pathname === "/browser" || url.pathname.startsWith("/browser/")) {
+      return handleBrowserIngress(request, bindings, async (normalized) => {
+        const metrics = createRequestMetrics();
+        // eslint-disable-next-line no-restricted-syntax -- composition root: request-scoped database adapter
+        const db = instrumentSqlDatabase(bindings.DB, metrics);
+        return handleWebSocket(normalized, bindings, new URL(normalized.url), db, metrics);
+      });
+    }
+
     // WebSocket upgrade for session
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader?.toLowerCase() === "websocket") {
+      if (bindings.REQUIRE_BROWSER_GATEWAY === "true" && !isSandboxWebSocketRequest(request)) {
+        return new Response("Forbidden", { status: 403 });
+      }
       const metrics = createRequestMetrics();
       // eslint-disable-next-line no-restricted-syntax -- composition root: construct the request-scoped database adapter
       const db = instrumentSqlDatabase(bindings.DB, metrics);

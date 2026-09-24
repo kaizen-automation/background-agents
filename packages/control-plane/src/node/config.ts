@@ -23,6 +23,10 @@ export type ConfigSource = Record<string, string | undefined>;
 
 /** Every `EnvConfig` field. `satisfies` fails if the table and the type ever disagree. */
 const ENV_CONFIG_KEYS = {
+  REQUIRE_BROWSER_GATEWAY: true,
+  ACCESS_ISSUER: true,
+  ACCESS_AUDIENCE: true,
+  ACCESS_SERVICE_TOKEN_CLIENT_ID: true,
   GITHUB_CLIENT_ID: true,
   GITHUB_CLIENT_SECRET: true,
   GOOGLE_CLIENT_ID: true,

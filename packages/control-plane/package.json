@@ -23,6 +23,7 @@
     "@open-inspect/shared": "file:../shared",
     "better-auth": "1.6.25",
     "hono": "^4.13.5",
+    "jose": "^6.2.12",
     "ws": "^8.21.3",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

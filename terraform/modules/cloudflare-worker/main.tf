@@ -66,7 +66,8 @@ resource "cloudflare_worker" "this" {
 
   # Enable workers.dev subdomain for direct access
   subdomain = {
-    enabled = true
+    enabled          = true
+    previews_enabled = var.preview_urls_enabled
   }
 
   observability = {
