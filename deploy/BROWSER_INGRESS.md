@@ -154,3 +154,34 @@ app.
 remains unchanged. Old tabs may still use the direct socket until reloaded. Coordinate a later
 enforcement change with active users. To roll back only socket transport, remove
 `browser_websocket_url` and redeploy/reload; the private login origin remains configured.
+
+### Custom-domain cutover to code.kaizenautomation.dev
+
+Production uses `browser_web_origin=https://code.kaizenautomation.dev` and
+`browser_websocket_url=wss://code.kaizenautomation.dev/_control-plane`. The first sets the control
+plane's auth base/trusted origin and generated web links; the second is compiled into the web client
+at deployment. Neither changes the Cloudflare upstream domain or sandbox callback URLs. Gateway
+enforcement remains enabled.
+
+Before deploying these values:
+
+1. Merge kaizen monorepo PR #12543 and manually deploy its gateway image while `GATEWAY_HOSTNAME`
+   remains unset, preserving the old hostname initially.
+2. Register `https://code.kaizenautomation.dev/api/auth/callback/github` in the GitHub App. Retain
+   the old tailnet callback during rollout.
+3. Verify the DNS-only A record points to the gateway's Tailscale IP and the gateway Doppler config
+   contains its scoped `CF_DNS_API_TOKEN`.
+4. Coordinate with active users, then set `GATEWAY_HOSTNAME=code.kaizenautomation.dev` in gateway
+   Doppler and deploy. This replaces the old ts.net listener. Verify
+   `curl -I https://code.kaizenautomation.dev/` succeeds over Tailscale without `-k`.
+5. Merge/deploy this app URL change immediately afterward. Expect an interruption between the
+   gateway and app deployments; users must reload and sign in again.
+
+Verify GitHub returns to the new hostname and a normal session's WebSocket uses
+`wss://code.kaizenautomation.dev/_control-plane/sessions/<id>/ws` and receives `subscribed`. Direct
+public access must remain blocked. Remove the old GitHub callback after verification. Do not change
+Access policies or the Caddy upstreams.
+
+Rollback requires both sides: unset `GATEWAY_HOSTNAME` and redeploy the gateway, then restore the
+previous ts.net browser origin/socket URL and redeploy the app. Keep the previous GitHub callback
+until the custom-domain cutover is confirmed.
