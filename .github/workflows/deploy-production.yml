@@ -2,22 +2,11 @@ name: Deploy Production (Kaizen)
 
 # Kaizen production deployment from `main`. Secrets come from Doppler
 # (project kaizen-code, config prd) via deploy/doppler/deploy.sh; the only
-# GitHub secret is DOPPLER_TOKEN. Upstream terraform.yml also triggers on `main` but
+# GitHub secret is production/DOPPLER_TOKEN. Upstream terraform.yml also triggers on `main` but
 # needs ~20 individual GitHub secrets; those stay unset, so it skips itself.
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "deploy/**"
-      - "terraform/**"
-      - "scripts/**"
-      - "packages/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/deploy-production.yml"
-      - "!**/*.md"
-  pull_request:
     branches: [main]
     paths:
       - "deploy/**"
@@ -39,39 +28,28 @@ concurrency:
 
 env:
   TF_VERSION: "1.14.8"
-  DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
 jobs:
-  check-secrets:
-    name: Check Secrets
+  deploy:
+    name: Apply Production
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    environment: production
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      has-secrets: ${{ steps.check.outputs.has-secrets }}
+    timeout-minutes: 45
     steps:
-      - name: Check if DOPPLER_TOKEN is configured
-        id: check
+      - name: Check deployment credential
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: |
-          if [ -n "$DOPPLER_TOKEN" ]; then
-            echo "has-secrets=true" >> $GITHUB_OUTPUT
-          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            # Fork PRs cannot read secrets; skip the plan with a notice.
-            echo "has-secrets=false" >> $GITHUB_OUTPUT
-            echo "::notice::Deploy plan skipped - DOPPLER_TOKEN secret not available to this pull request."
-          else
-            echo "::error::DOPPLER_TOKEN repository secret is not configured, so main was NOT deployed. Add a read-only Doppler service token for kaizen-code/prd under Settings > Secrets and variables > Actions (see deploy/README.md)."
+          if [ -z "$DOPPLER_TOKEN" ]; then
+            echo "::error::Configure DOPPLER_TOKEN in the production environment."
             exit 1
           fi
 
-  deploy:
-    name: Plan / Apply
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [check-secrets]
-    if: needs.check-secrets.outputs.has-secrets == 'true'
-    steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -99,19 +77,21 @@ jobs:
         uses: dopplerhq/cli-action@v4
 
       - name: Check Doppler secrets
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: deploy/doppler/deploy.sh check
 
       - name: Terraform Init
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: deploy/doppler/deploy.sh init
 
-      - name: Terraform Plan
-        if: github.event_name == 'pull_request'
-        run: deploy/doppler/deploy.sh plan 2 -no-color -lock=false
-
       - name: Terraform Apply
-        if: github.event_name != 'pull_request'
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: deploy/doppler/deploy.sh apply 2 -no-color -auto-approve
 
       - name: Terraform Output
-        if: github.event_name != 'pull_request'
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: deploy/doppler/deploy.sh output -no-color

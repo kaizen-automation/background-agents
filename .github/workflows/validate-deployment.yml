@@ -1,0 +1,49 @@
+name: Validate Deployment
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "deploy/**"
+      - "terraform/**"
+      - ".github/workflows/deploy-production.yml"
+      - ".github/workflows/validate-deployment.yml"
+      - "!**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-deployment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check deployment shell syntax
+        run: find deploy -type f -name '*.sh' -exec bash -n {} +
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.8"
+          terraform_wrapper: false
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform
+
+      - name: Terraform Init (no backend)
+        run: terraform init -backend=false -input=false
+        working-directory: terraform/environments/production
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+        working-directory: terraform/environments/production

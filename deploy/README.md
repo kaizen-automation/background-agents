@@ -228,12 +228,19 @@ app (`packages/modal-infra/deploy.py`, sandbox image build included), so `node` 
 Modal CLI come from the repository's own dependencies (`npm install`, and `uv sync --frozen` in
 `packages/modal-infra`).
 
-After the initial bootstrap, `.github/workflows/deploy-production.yml` automates later changes: pull
-requests into `main` run `deploy.sh plan`, and pushes to `main` run
-`deploy.sh apply 2 -auto-approve`. It needs a single GitHub Actions secret, `DOPPLER_TOKEN` (the
-same read-only service token used above); everything else is read from Doppler at run time. A push
-to `main` without that secret fails the workflow (nothing is deployed); pull requests without it
-(e.g. from forks) skip the plan with a notice.
+After the initial bootstrap, `.github/workflows/deploy-production.yml` automates later changes:
+pushes to `main` and manual runs on `main` run `deploy.sh apply 2 -auto-approve`. The deploy job
+uses the GitHub `production` environment, whose deployment branch policy must allow only the
+`main` branch (no tags). Store `DOPPLER_TOKEN` only as an environment secret there, using a
+dedicated read-only service token for Doppler `kaizen-code/prd`. Do not add it as a repository or
+organization secret. Everything else is read from Doppler at run time. A missing environment
+secret fails the deployment before dependency installation.
+
+Pull requests run secret-free deployment validation in `.github/workflows/validate-deployment.yml`
+and the existing TypeScript, Python, and Terraform CI workflows. They do not run the Doppler
+wrapper or a production Terraform plan. The production token is passed only to the credential
+check and deployment steps, not dependency installation. Manual deployment from another branch
+is skipped by the workflow and blocked by the environment policy.
 
 After the first deploy, bootstrap the workspace Owner (upstream Step 7a):
 
