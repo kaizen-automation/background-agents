@@ -400,9 +400,24 @@ export class SessionMessageQueue {
     // The same rule as admission, applied at dispatch: the harness is fixed
     // at create, so nothing may reach the sandbox on a model it cannot run.
     const harnessIncompatibility = checkHarnessCompatibility(resolvedHarness, resolvedModel);
-    const authenticationError =
-      harnessIncompatibility?.message ??
-      (await this.getProviderAuthenticationError(resolvedModel, resolvedHarness));
+    let authenticationError = harnessIncompatibility?.message ?? null;
+    if (!authenticationError) {
+      try {
+        authenticationError = await this.getProviderAuthenticationError(
+          resolvedModel,
+          resolvedHarness
+        );
+      } catch {
+        // Secret providers can fail transiently. Use the normal completion path
+        // rather than leaving an unclaimed prompt pending with no retry scheduled.
+        // Do not expose upstream errors, which may contain credential values.
+        authenticationError = "Unable to load authentication for this prompt. Please retry.";
+        this.log.error("provider_auth.check_failed", {
+          event: "provider_auth.check_failed",
+          model: resolvedModel,
+        });
+      }
+    }
     if (this.repository.getSession()?.budget_exhausted === 1) return;
     if (authenticationError) {
       this.log.error("provider_auth.unavailable", {

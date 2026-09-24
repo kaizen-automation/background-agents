@@ -1219,6 +1219,58 @@ describe("SessionMessageQueue", () => {
     expect(h.wsManager.send).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    "fails a secret-fetch exception without stranding the prompt (running=%s)",
+    async (running) => {
+      const h = buildQueue();
+      h.repository.getNextPendingMessage.mockReturnValueOnce(createMessage());
+      if (running) h.wsManager.getSandboxSocket.mockReturnValue({ readyState: 1 } as WebSocket);
+      h.getProviderAuthenticationError.mockRejectedValueOnce(
+        new Error("sensitive-upstream-credential")
+      );
+
+      await expect(h.queue.processMessageQueue()).resolves.toBeUndefined();
+
+      expect(h.repository.recordMessageCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messageId: "msg-1",
+          success: false,
+          error: "Unable to load authentication for this prompt. Please retry.",
+        }),
+        expect.any(Number),
+        "pending"
+      );
+      expect(h.sessionStatus.reconcileAfterExecution).toHaveBeenCalledWith(false);
+      expect(h.sandboxLifecycle.spawnSandbox).not.toHaveBeenCalled();
+      expect(h.wsManager.send).not.toHaveBeenCalled();
+      expect(JSON.stringify(h.log.error.mock.calls)).not.toContain("sensitive-upstream-credential");
+    }
+  );
+
+  it("dispatches the next prompt after a secret-fetch exception recovers", async () => {
+    const h = buildQueue();
+    const sandboxWs = { readyState: 1 } as WebSocket;
+    h.repository.getNextPendingMessage
+      .mockReturnValueOnce(createMessage({ id: "failed-fetch" }))
+      .mockReturnValueOnce(createMessage({ id: "next-prompt" }));
+    h.getProviderAuthenticationError
+      .mockRejectedValueOnce(new Error("Unable to load sandbox secrets from Doppler"))
+      .mockResolvedValueOnce(null);
+    h.wsManager.getSandboxSocket.mockReturnValue(sandboxWs);
+
+    await h.queue.processMessageQueue();
+
+    expect(h.repository.recordMessageCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "failed-fetch", success: false }),
+      expect.any(Number),
+      "pending"
+    );
+    expect(h.wsManager.send).toHaveBeenCalledWith(
+      sandboxWs,
+      expect.objectContaining({ type: "prompt", messageId: "next-prompt" })
+    );
+  });
+
   it("passes the session harness so a deployment can refuse a stale persisted harness", async () => {
     const h = buildQueue();
     h.repository.getSession.mockReturnValue(createSession({ harness: "claude" }));
