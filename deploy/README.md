@@ -128,7 +128,7 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
 - Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
   Keys and Endpoint). The resource name is not a secret and lives in code:
   `azure_openai_resource_name` in `deploy/production.tfvars.json` (the `<RESOURCE_NAME>` in
-  `https://<RESOURCE_NAME>.openai.azure.com/`, currently `kaizen-openai-westus3`). Both or neither;
+  `https://<RESOURCE_NAME>.openai.azure.com/`, currently `kaizen-openai`, eastus). Both or neither;
   `check` enforces it, as does the Terraform validation on `azure_openai_resource_name`. Both reach
   only Modal sandboxes (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's
   Bedrock/Anthropic credential.
@@ -139,7 +139,10 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
   `gpt-6-sol` / `gpt-6-luna` (model version 2026-09-22) for `azure/gpt-6-sol` / `azure/gpt-6-luna`.
   Any further `azure/<model>` catalog entry needs a same-named deployment as well. The resource is
   global (`azure_openai_resource_name`), not per model, so every allowlisted `azure/*` model must be
-  deployed on that one resource.
+  deployed on that one resource, and `AZURE_OPENAI_API_KEY` must be a key of that same resource — a
+  key from another resource fails with "invalid subscription key or wrong API endpoint". Quota for
+  these models is pooled per subscription, so a second resource (`kaizen-openai-westus3` holds small
+  copies of the same deployments) competes with `kaizen-openai` for capacity.
 - Then expose the model: append the canonical id (`azure/gpt-6-astra`, `azure/gpt-5.6-sol`, ...) to
   `model_allowlist` in `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`)
   and `apply`. Until then the model stays hidden; once allowlisted it is enabled by default
@@ -156,8 +159,7 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
   and the control plane rejects `harness: claude` on every path.
 - `model_allowlist` — the Bedrock-verified Claude models (Sonnet 4.6, Opus 4.7, Sonnet 5) plus
   `azure/gpt-6-astra`, `azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`, `azure/gpt-6-sol` and
-  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` =
-  `kaizen-openai-westus3`).
+  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` = `kaizen-openai`).
 
 Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
 (`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
