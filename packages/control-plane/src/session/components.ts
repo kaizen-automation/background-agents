@@ -324,6 +324,11 @@ export function createSessionRuntime(platform: SessionPlatform, env: Env): Sessi
     durableObjectId,
     repoSecretsEncryptionKey,
     secretsCapEnforcement: env.SECRETS_CAP_ENFORCEMENT,
+    doppler: {
+      token: env.SANDBOX_DOPPLER_TOKEN,
+      repositories: env.SANDBOX_DOPPLER_REPOSITORIES,
+      environmentIds: env.SANDBOX_DOPPLER_ENVIRONMENT_IDS,
+    },
     log,
   });
 

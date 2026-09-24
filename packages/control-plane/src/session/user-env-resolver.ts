@@ -1,3 +1,8 @@
+import {
+  loadSandboxDopplerSecrets,
+  stripDopplerCredentials,
+  type SandboxDopplerConfig,
+} from "./doppler-secrets";
 /**
  * Resolves the user-defined environment a session's sandbox receives: decrypts
  * and folds global/repo/environment secrets, derives the managed-provider env
@@ -50,6 +55,7 @@ export interface UserEnvResolverDeps {
   durableObjectId: string;
   repoSecretsEncryptionKey: string;
   secretsCapEnforcement: string | undefined;
+  doppler?: SandboxDopplerConfig;
   /** The session-scoped logger; the composition root creates it before this class. */
   log: Logger;
 }
@@ -69,6 +75,7 @@ export class UserEnvResolver {
   private readonly repoSecretsEncryptionKey: string;
   private readonly secretsCapEnforcement: string | undefined;
   private readonly log: Logger;
+  private readonly doppler: SandboxDopplerConfig;
 
   constructor(deps: UserEnvResolverDeps) {
     this.db = deps.db;
@@ -78,6 +85,7 @@ export class UserEnvResolver {
     this.repoSecretsEncryptionKey = deps.repoSecretsEncryptionKey;
     this.secretsCapEnforcement = deps.secretsCapEnforcement;
     this.log = deps.log;
+    this.doppler = deps.doppler ?? {};
   }
 
   /**
@@ -179,6 +187,21 @@ export class UserEnvResolver {
         environmentSecretsStore.getDecryptedSecrets(environmentId),
     });
 
+    const dopplerSecrets = await loadSandboxDopplerSecrets(this.doppler, {
+      environmentId: session.environment_id,
+      repository:
+        session.repo_owner && session.repo_name
+          ? `${session.repo_owner}/${session.repo_name}`
+          : null,
+    });
+    if (dopplerSecrets !== null) {
+      // Fresh runtime secrets take precedence over stored values. Never persist them
+      // in session state or image builds. Strip legacy tokens from every source.
+      sources.push({ label: "doppler", secrets: dopplerSecrets });
+      for (const source of sources) {
+        source.secrets = stripDopplerCredentials(source.secrets, this.doppler.token);
+      }
+    }
     const merge = mergeSecretSources(sources);
     auditSecretsMerge({
       merge,
@@ -203,6 +226,7 @@ export class UserEnvResolver {
       : sources.filter(
           (source) =>
             source.label === "global" ||
+            source.label === "doppler" ||
             (primary && source.label === `${primary.repoOwner}/${primary.repoName}`)
         );
     const managedSecrets = mergeSecretSources(managedSources).merged;

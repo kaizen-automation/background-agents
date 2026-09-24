@@ -23,6 +23,9 @@ export type ConfigSource = Record<string, string | undefined>;
 
 /** Every `EnvConfig` field. `satisfies` fails if the table and the type ever disagree. */
 const ENV_CONFIG_KEYS = {
+  SANDBOX_DOPPLER_TOKEN: true,
+  SANDBOX_DOPPLER_REPOSITORIES: true,
+  SANDBOX_DOPPLER_ENVIRONMENT_IDS: true,
   REQUIRE_BROWSER_GATEWAY: true,
   ACCESS_ISSUER: true,
   ACCESS_AUDIENCE: true,
