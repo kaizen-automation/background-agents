@@ -124,3 +124,18 @@ Caddy; the old browser transport remains available. After cutover, prefer restor
 working protected deployment. Setting `require_browser_gateway=false` deliberately reopens direct
 browser upgrades and should only be an explicit incident decision. Keep the protected `/browser/*`
 route and Access configuration while Caddy targets it. Do not remove either underneath the gateway.
+
+### Login-origin cutover
+
+Register `https://inspect-gateway.tail8b645a.ts.net/api/auth/callback/github` as an additional
+GitHub App redirect URI before deploying the Kaizen login-origin change. Keep the public callback
+during rollback readiness. `browser_web_origin` sets the control plane's `WEB_APP_URL`, which Better
+Auth uses for its base URL, trusted origin, and host-only cookies. It does not change the Cloudflare
+custom domain or Caddy upstream. Users must sign in again at the gateway; public-origin sign-in and
+other auth actions may stop working. Coordinate this deployment with active users.
+
+After deployment, sign in from the gateway and verify the callback returns there, then open a test
+session. This change does not switch the browser WebSocket URL, enforce gateway-only sockets, or
+remove the temporary web Access policy. Those are separate cutover steps. To roll back the login
+origin, remove `browser_web_origin` from production tfvars and redeploy; retain the public GitHub
+callback until the cutover is verified.

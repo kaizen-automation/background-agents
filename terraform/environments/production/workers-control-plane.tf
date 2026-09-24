@@ -92,7 +92,7 @@ module "control_plane_worker" {
     local.browser_access_bindings,
     {
       REQUIRE_BROWSER_GATEWAY       = { value = tostring(var.require_browser_gateway) }
-      WEB_APP_URL                   = { value = local.web_app_url }
+      WEB_APP_URL                   = { value = var.browser_web_origin != "" ? var.browser_web_origin : local.web_app_url }
       ALLOWED_USERS                 = { value = var.allowed_users }
       ALLOWED_EMAIL_DOMAINS         = { value = var.allowed_email_domains }
       ALLOWED_EMAILS                = { value = var.allowed_emails }

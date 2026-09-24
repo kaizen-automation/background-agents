@@ -58,3 +58,16 @@ locals {
     ACCESS_SERVICE_TOKEN_CLIENT_ID = { value = var.gateway_access_client_id }
   } : {}
 }
+
+variable "browser_web_origin" {
+  description = "Optional browser-visible HTTPS origin for user authentication behind a gateway. Does not change the Worker custom domain."
+  type        = string
+  default     = ""
+  validation {
+    condition = var.browser_web_origin == "" || (
+      can(regex("^https://[a-zA-Z0-9.-]+(:[0-9]+)?$", var.browser_web_origin)) &&
+      alltrue([for port in regexall(":([0-9]+)$", var.browser_web_origin) : tonumber(port[0]) <= 65535])
+    )
+    error_message = "browser_web_origin must be an HTTPS origin without a path, query, fragment, or trailing slash; an optional port must be between 0 and 65535."
+  }
+}
