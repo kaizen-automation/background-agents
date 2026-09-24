@@ -28,7 +28,7 @@ describe("launch-time Doppler secrets", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls[0][1]).toMatchObject({
       headers: { Authorization: `Bearer ${config.token}` },
-      redirect: "error",
+      redirect: "manual",
     });
     expect(fetcher.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
   });

@@ -50,7 +50,7 @@ export async function loadSandboxDopplerSecrets(
   try {
     const response = await fetcher(DOWNLOAD_URL, {
       headers: { Authorization: `Bearer ${config.token}`, Accept: "application/json" },
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok || !response.body) throw new Error();
