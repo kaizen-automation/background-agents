@@ -159,3 +159,9 @@ variable "route_pattern" {
   type        = string
   default     = null
 }
+
+variable "preview_urls_enabled" {
+  description = "Whether version/preview URLs are reachable; disable for ingress Workers."
+  type        = bool
+  default     = true
+}

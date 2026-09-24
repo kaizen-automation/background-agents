@@ -29,10 +29,11 @@ resource "null_resource" "control_plane_build" {
 module "control_plane_worker" {
   source = "../../modules/cloudflare-worker"
 
-  account_id       = var.cloudflare_account_id
-  worker_name      = "open-inspect-control-plane-${local.name_suffix}"
-  worker_subdomain = var.cloudflare_worker_subdomain
-  script_path      = local.control_plane_script_path
+  account_id           = var.cloudflare_account_id
+  worker_name          = "open-inspect-control-plane-${local.name_suffix}"
+  worker_subdomain     = var.cloudflare_worker_subdomain
+  script_path          = local.control_plane_script_path
+  preview_urls_enabled = false
 
   kv_namespaces = {
     REPOS_CACHE = {
@@ -88,10 +89,12 @@ module "control_plane_worker" {
   enable_service_bindings = var.enable_service_bindings
 
   plain_text_bindings = merge(
+    local.browser_access_bindings,
     {
       SANDBOX_DOPPLER_REPOSITORIES    = { value = join(",", var.sandbox_doppler_repositories) }
       SANDBOX_DOPPLER_ENVIRONMENT_IDS = { value = join(",", var.sandbox_doppler_environment_ids) }
-      WEB_APP_URL                     = { value = local.web_app_url }
+      REQUIRE_BROWSER_GATEWAY         = { value = tostring(var.require_browser_gateway) }
+      WEB_APP_URL                     = { value = var.browser_web_origin != "" ? var.browser_web_origin : local.web_app_url }
       ALLOWED_USERS                   = { value = var.allowed_users }
       ALLOWED_EMAIL_DOMAINS           = { value = var.allowed_email_domains }
       ALLOWED_EMAILS                  = { value = var.allowed_emails }

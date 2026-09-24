@@ -128,7 +128,7 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
 - Doppler: `AZURE_OPENAI_API_KEY` (a key of the Azure OpenAI resource, Foundry portal → resource →
   Keys and Endpoint). The resource name is not a secret and lives in code:
   `azure_openai_resource_name` in `deploy/production.tfvars.json` (the `<RESOURCE_NAME>` in
-  `https://<RESOURCE_NAME>.openai.azure.com/`, currently `kaizen-openai-westus3`). Both or neither;
+  `https://<RESOURCE_NAME>.openai.azure.com/`, currently `kaizen-openai`, eastus). Both or neither;
   `check` enforces it, as does the Terraform validation on `azure_openai_resource_name`. Both reach
   only Modal sandboxes (`tests/azure_openai.tftest.hcl`). Independent of the Claude harness's
   Bedrock/Anthropic credential.
@@ -139,7 +139,10 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
   `gpt-6-sol` / `gpt-6-luna` (model version 2026-09-22) for `azure/gpt-6-sol` / `azure/gpt-6-luna`.
   Any further `azure/<model>` catalog entry needs a same-named deployment as well. The resource is
   global (`azure_openai_resource_name`), not per model, so every allowlisted `azure/*` model must be
-  deployed on that one resource.
+  deployed on that one resource, and `AZURE_OPENAI_API_KEY` must be a key of that same resource — a
+  key from another resource fails with "invalid subscription key or wrong API endpoint". Quota for
+  these models is pooled per subscription, so a second resource (`kaizen-openai-westus3` holds small
+  copies of the same deployments) competes with `kaizen-openai` for capacity.
 - Then expose the model: append the canonical id (`azure/gpt-6-astra`, `azure/gpt-5.6-sol`, ...) to
   `model_allowlist` in `deploy/production.tfvars.json` (the deployment allowlist, `MODEL_ALLOWLIST`)
   and `apply`. Until then the model stays hidden; once allowlisted it is enabled by default
@@ -156,8 +159,7 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
   and the control plane rejects `harness: claude` on every path.
 - `model_allowlist` — the Bedrock-verified Claude models (Sonnet 4.6, Opus 4.7, Sonnet 5) plus
   `azure/gpt-6-astra`, `azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`, `azure/gpt-6-sol` and
-  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` =
-  `kaizen-openai-westus3`).
+  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` = `kaizen-openai`).
 
 Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
 (`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
@@ -314,7 +316,12 @@ this token in global, repo, environment, or image-build secrets.
 Set `sandbox_doppler_repositories = ["kaizen-automation/kaizen"]` in the deployment tfvars.
 Environment-launched sessions require a separate explicit `sandbox_doppler_environment_ids`
 allowlist; membership of an allowed repository does not implicitly authorize an environment. Empty
-allowlists disable fetching. An allowed target without a token fails closed.
+allowlists disable fetching. Terraform rejects enabled targets without a nonblank token; runtime
+launches also fail closed if the token is missing.
+
+The dedicated Doppler config defines the complete runtime secret set: there is no per-secret
+allowlist. Every resolved entry is injected except Doppler credentials and metadata. Only place
+credentials intended for these coding sessions in that config.
 
 Doppler values override stored global/repo/environment secrets for authorized targets. Legacy
 `DOPPLER_*` and `SANDBOX_DOPPLER_*` keys are removed from their merged runtime environment,
@@ -324,10 +331,14 @@ never include response bodies or credential values.
 
 Before cutover, remove old Doppler tokens from Inspect's secret stores and rebuild any images that
 previously persisted those tokens. Setup/start hooks must consume the already-injected environment
-instead of running `doppler run` or downloading configuration. Image builds should receive only
-separately scoped build credentials (such as registry access), not this runtime config containing
-database credentials. Keep production replica access under its separate key; it does not replace the
-local development `DB_*` settings.
+instead of running `doppler run` or downloading configuration. For the Kaizen monorepo, set
+`KZ_USE_DOPPLER=0` in `kaizen-code-sandbox/prd`: its `scripts/run-with-doppler.sh` wrapper then
+executes commands directly with the injected environment, even if an image still has local Doppler
+configuration. This does not override a custom hook that explicitly calls `doppler run`; inspect the
+live repository/environment hooks and remove those calls before cutover. Image builds should receive
+only separately scoped build credentials (such as registry access), not this runtime config
+containing database credentials. Keep production replica access under its separate key; it does not
+replace the local development `DB_*` settings.
 
 Deploy the control-plane change before enabling the allowlist and token. Verify an authorized new
 session receives expected keys, has no Doppler token, and can start the development app without

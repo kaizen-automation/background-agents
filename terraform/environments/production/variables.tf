@@ -899,6 +899,14 @@ variable "sandbox_doppler_token" {
   type        = string
   sensitive   = true
   default     = ""
+
+  validation {
+    condition = (
+      length(var.sandbox_doppler_repositories) + length(var.sandbox_doppler_environment_ids) == 0 ||
+      trimspace(var.sandbox_doppler_token) != ""
+    )
+    error_message = "sandbox_doppler_token must be set when repository or environment Doppler injection is enabled."
+  }
 }
 
 variable "sandbox_doppler_repositories" {
