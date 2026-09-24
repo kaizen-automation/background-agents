@@ -108,3 +108,26 @@ run "reject_malformed_audience" {
   }
   expect_failures = [var.browser_access_audience]
 }
+
+run "gateway_login_origin" {
+  command = plan
+  variables {
+    browser_web_origin = "https://inspect-gateway.example.ts.net"
+  }
+  assert {
+    condition     = module.control_plane_worker.plain_text_bindings["WEB_APP_URL"] == var.browser_web_origin && local.web_app_url != var.browser_web_origin && module.control_plane_worker.plain_text_bindings["REQUIRE_BROWSER_GATEWAY"] == "false"
+    error_message = "The gateway login origin must reach auth without changing the upstream host or enforcing gateway sockets."
+  }
+}
+run "default_login_origin" {
+  command = plan
+  assert {
+    condition     = module.control_plane_worker.plain_text_bindings["WEB_APP_URL"] == local.web_app_url
+    error_message = "Without an override, auth must retain its existing origin."
+  }
+}
+run "reject_login_origin_with_path" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example/auth" }
+  expect_failures = [var.browser_web_origin]
+}
