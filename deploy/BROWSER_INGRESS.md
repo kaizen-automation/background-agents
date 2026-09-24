@@ -139,3 +139,18 @@ session. This change does not switch the browser WebSocket URL, enforce gateway-
 remove the temporary web Access policy. Those are separate cutover steps. To roll back the login
 origin, remove `browser_web_origin` from production tfvars and redeploy; retain the public GitHub
 callback until the cutover is verified.
+
+### Browser WebSocket cutover
+
+Kaizen production sets `browser_websocket_url` to
+`wss://inspect-gateway.tail8b645a.ts.net/_control-plane`. Deployment rebuilds the web bundle with
+this URL in `NEXT_PUBLIC_WS_URL`; existing tabs must reload to receive it. Users need Tailscale
+connectivity. Open the gateway, complete GitHub sign-in, and open a test session. In browser Network
+tools, verify its WebSocket uses the gateway `/_control-plane/sessions/<id>/ws` route, upgrades
+successfully, and receives `subscribed`. The earlier console probe alone does not verify the rebuilt
+app.
+
+`require_browser_gateway` remains false during this check, and the temporary web Access policy
+remains unchanged. Old tabs may still use the direct socket until reloaded. Coordinate a later
+enforcement change with active users. To roll back only socket transport, remove
+`browser_websocket_url` and redeploy/reload; the private login origin remains configured.
