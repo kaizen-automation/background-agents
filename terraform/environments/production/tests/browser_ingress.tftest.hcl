@@ -131,3 +131,42 @@ run "reject_login_origin_with_path" {
   variables { browser_web_origin = "https://gateway.example/auth" }
   expect_failures = [var.browser_web_origin]
 }
+
+run "reject_login_port_above_maximum" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example:65536" }
+  expect_failures = [var.browser_web_origin]
+}
+
+run "reject_login_port_very_large" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example:999999999999999999999999999999" }
+  expect_failures = [var.browser_web_origin]
+}
+
+run "accept_login_port_0" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example:0" }
+  assert {
+    condition     = module.control_plane_worker.plain_text_bindings["WEB_APP_URL"] == var.browser_web_origin
+    error_message = "Valid explicit ports must reach the Worker."
+  }
+}
+
+run "accept_login_port_443" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example:443" }
+  assert {
+    condition     = module.control_plane_worker.plain_text_bindings["WEB_APP_URL"] == var.browser_web_origin
+    error_message = "Valid explicit ports must reach the Worker."
+  }
+}
+
+run "accept_login_port_65535" {
+  command = plan
+  variables { browser_web_origin = "https://gateway.example:65535" }
+  assert {
+    condition     = module.control_plane_worker.plain_text_bindings["WEB_APP_URL"] == var.browser_web_origin
+    error_message = "Valid explicit ports must reach the Worker."
+  }
+}

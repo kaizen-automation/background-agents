@@ -64,7 +64,10 @@ variable "browser_web_origin" {
   type        = string
   default     = ""
   validation {
-    condition     = var.browser_web_origin == "" || can(regex("^https://[a-zA-Z0-9.-]+(:[0-9]+)?$", var.browser_web_origin))
-    error_message = "browser_web_origin must be an HTTPS origin without a path, query, fragment, or trailing slash."
+    condition = var.browser_web_origin == "" || (
+      can(regex("^https://[a-zA-Z0-9.-]+(:[0-9]+)?$", var.browser_web_origin)) &&
+      alltrue([for port in regexall(":([0-9]+)$", var.browser_web_origin) : tonumber(port[0]) <= 65535])
+    )
+    error_message = "browser_web_origin must be an HTTPS origin without a path, query, fragment, or trailing slash; an optional port must be between 0 and 65535."
   }
 }
