@@ -13,10 +13,9 @@ locals {
     }],
     # Service bindings (only when enabled - disable if target workers don't exist yet)
     var.enable_service_bindings ? [for binding_name, binding in var.service_bindings : {
-      type       = "service"
-      name       = binding_name
-      service    = binding.service_name
-      entrypoint = binding.entrypoint
+      type    = "service"
+      name    = binding_name
+      service = binding.service_name
     }] : [],
     # D1 database bindings
     [for binding_name, binding in var.d1_databases : {

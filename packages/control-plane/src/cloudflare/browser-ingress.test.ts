@@ -13,7 +13,7 @@ beforeAll(async () => {
     keys: [{ ...(await exportJWK(pair.publicKey)), kid: "test", alg: "RS256" }],
   });
 });
-function request(path = "/sessions/test/ws", token?: string, method = "GET") {
+function request(path = "/browser/sessions/test/ws", token?: string, method = "GET") {
   const headers: Record<string, string> = { Upgrade: "websocket" };
   if (token) headers["Cf-Access-Jwt-Assertion"] = token;
   return new Request(`https://ingress.example${path}`, { method, headers });
@@ -25,7 +25,6 @@ function bindings() {
       ACCESS_ISSUER: issuer,
       ACCESS_AUDIENCE: "browser-audience",
       ACCESS_SERVICE_TOKEN_CLIENT_ID: "gateway.access",
-      CONTROL_PLANE_BROWSER: { fetch },
     } as BrowserIngressBindings,
     fetch,
   };
@@ -50,9 +49,9 @@ describe("browser ingress", () => {
     const req = request(undefined, await token());
     req.headers.set("CF-Access-Client-Secret", "synthetic-secret");
     req.headers.set("CF-Access-Client-Id", "gateway.access");
-    expect((await handleBrowserIngress(req, env, keys)).status).toBe(200);
+    expect((await handleBrowserIngress(req, env, fetch, keys)).status).toBe(200);
     const forwarded = fetch.mock.calls[0][0] as Request;
-    expect(forwarded.url).toBe(req.url);
+    expect(forwarded.url).toBe(req.url.replace("/browser/", "/"));
     expect(forwarded.headers.get("Upgrade")).toBe("websocket");
     for (const name of [
       "Cf-Access-Jwt-Assertion",
@@ -74,7 +73,7 @@ describe("browser ingress", () => {
   ])("rejects signed assertions with invalid claims: %j", async (claims) => {
     const { env, fetch } = bindings();
     expect(
-      (await handleBrowserIngress(request(undefined, await token(claims)), env, keys)).status
+      (await handleBrowserIngress(request(undefined, await token(claims)), env, fetch, keys)).status
     ).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -82,7 +81,9 @@ describe("browser ingress", () => {
     "rejects absent, forged, or oversized assertions",
     async (value) => {
       const { env, fetch } = bindings();
-      expect((await handleBrowserIngress(request(undefined, value), env, keys)).status).toBe(403);
+      expect((await handleBrowserIngress(request(undefined, value), env, fetch, keys)).status).toBe(
+        403
+      );
       expect(fetch).not.toHaveBeenCalled();
     }
   );
@@ -96,14 +97,16 @@ describe("browser ingress", () => {
       .setExpirationTime("1m")
       .sign(pair.privateKey);
     const { env, fetch } = bindings();
-    expect((await handleBrowserIngress(request(undefined, forged), env, keys)).status).toBe(403);
+    expect((await handleBrowserIngress(request(undefined, forged), env, fetch, keys)).status).toBe(
+      403
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
   it("fails closed if key retrieval fails", async () => {
     const { env, fetch } = bindings();
     expect(
       (
-        await handleBrowserIngress(request(undefined, await token()), env, async () => {
+        await handleBrowserIngress(request(undefined, await token()), env, fetch, async () => {
           throw new Error("unavailable");
         })
       ).status
@@ -116,30 +119,33 @@ describe("browser ingress", () => {
       const { env, fetch } = bindings();
       env[name] = "";
       expect(
-        (await handleBrowserIngress(request(undefined, await token()), env, keys)).status
+        (await handleBrowserIngress(request(undefined, await token()), env, fetch, keys)).status
       ).toBe(503);
       expect(fetch).not.toHaveBeenCalled();
     }
   );
   it.each([
     "/health",
-    "/sessions/test/ws?type=sandbox",
-    "/sessions/test/ws?type=client&type=sandbox",
-    "/sessions/test/ws?type=unknown",
-    "/sessions/test/ws/",
-    "/sessions/test/messages",
+    "/sessions/test/ws",
+    "/browser/sessions/test/ws?type=sandbox",
+    "/browser/sessions/test/ws?type=client&type=sandbox",
+    "/browser/sessions/test/ws?type=unknown",
+    "/browser/sessions/test/ws/",
+    "/browser/sessions/test/messages",
   ])("does not proxy %s even with valid gateway credentials", async (path) => {
     const { env, fetch } = bindings();
-    expect((await handleBrowserIngress(request(path, await token()), env, keys)).status).toBe(404);
+    expect(
+      (await handleBrowserIngress(request(path, await token()), env, fetch, keys)).status
+    ).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
   });
   it("rejects non-upgrade and non-GET requests", async () => {
     const { env, fetch } = bindings();
     for (const req of [
       request(undefined, await token(), "POST"),
-      new Request("https://ingress.example/sessions/test/ws"),
+      new Request("https://ingress.example/browser/sessions/test/ws"),
     ]) {
-      expect((await handleBrowserIngress(req, env, keys)).status).toBe(404);
+      expect((await handleBrowserIngress(req, env, fetch, keys)).status).toBe(404);
     }
     expect(fetch).not.toHaveBeenCalled();
   });

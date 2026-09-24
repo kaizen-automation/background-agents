@@ -47,7 +47,7 @@ variables {
 run "disabled_by_default" {
   command = plan
   assert {
-    condition     = length(module.browser_ingress_worker) == 0 && !var.require_browser_gateway
+    condition     = length(cloudflare_zero_trust_access_application.browser_ingress) == 0 && !var.require_browser_gateway
     error_message = "Existing deployments must not be cut over implicitly."
   }
 }
@@ -60,7 +60,7 @@ run "provision_before_cutover" {
     gateway_access_client_id        = "test.access"
   }
   assert {
-    condition     = length(module.browser_ingress_worker) == 1 && !var.require_browser_gateway
+    condition     = length(cloudflare_zero_trust_access_application.browser_ingress) == 1 && !var.require_browser_gateway
     error_message = "Provisioning must not close the old browser path."
   }
   assert {
@@ -68,8 +68,8 @@ run "provision_before_cutover" {
     error_message = "Only service-token auth belongs on the browser ingress."
   }
   assert {
-    condition     = cloudflare_zero_trust_access_application.browser_ingress[0].domain == local.browser_ingress_host
-    error_message = "Access must protect the browser ingress hostname."
+    condition     = cloudflare_zero_trust_access_application.browser_ingress[0].domain == "${local.control_plane_host}/browser/*"
+    error_message = "Access must protect the browser path on the existing control plane."
   }
 }
 run "private_transport_without_changing_oauth" {

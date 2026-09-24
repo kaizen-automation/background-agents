@@ -3,10 +3,9 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { isBrowserWebSocketRequest } from "./websocket-ingress";
 
 export interface BrowserIngressBindings {
-  CONTROL_PLANE_BROWSER: Pick<Fetcher, "fetch">;
-  ACCESS_ISSUER: string;
-  ACCESS_AUDIENCE: string;
-  ACCESS_SERVICE_TOKEN_CLIENT_ID: string;
+  ACCESS_ISSUER?: string;
+  ACCESS_AUDIENCE?: string;
+  ACCESS_SERVICE_TOKEN_CLIENT_ID?: string;
 }
 
 let keyCache: { issuer: string; keys: JWTVerifyGetKey } | undefined;
@@ -25,11 +24,17 @@ function accessKeys(issuer: string): JWTVerifyGetKey {
 export async function handleBrowserIngress(
   request: Request,
   env: BrowserIngressBindings,
+  forward: (request: Request) => Promise<Response>,
   keys?: JWTVerifyGetKey
 ): Promise<Response> {
-  if (!isBrowserWebSocketRequest(request)) return new Response("Not found", { status: 404 });
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith("/browser/")) return new Response("Not found", { status: 404 });
+  url.pathname = url.pathname.slice("/browser".length);
+  const normalized = new Request(url, request);
+  if (!isBrowserWebSocketRequest(normalized)) return new Response("Not found", { status: 404 });
   // Never derive the key endpoint or expected claims from request headers/the JWT.
   if (
+    !env.ACCESS_ISSUER ||
     !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_ISSUER ?? "") ||
     !env.ACCESS_AUDIENCE ||
     !env.ACCESS_SERVICE_TOKEN_CLIENT_ID
@@ -60,11 +65,7 @@ export async function handleBrowserIngress(
   ]) {
     headers.delete(name);
   }
-  // This binding targets the private named entrypoint, not the public fetch handler.
+  // The prefix is removed only after gateway authentication succeeds.
   // The user's session-specific subscription token is still required by the session.
-  return env.CONTROL_PLANE_BROWSER.fetch(new Request(request, { headers }));
+  return forward(new Request(normalized, { headers }));
 }
-
-export default {
-  fetch: (request: Request, env: BrowserIngressBindings) => handleBrowserIngress(request, env),
-};

@@ -41,7 +41,6 @@ variable "service_bindings" {
   description = "Map of service bindings keyed by binding name for worker-to-worker communication"
   type = map(object({
     service_name = string
-    entrypoint   = optional(string)
   }))
   default = {}
 }

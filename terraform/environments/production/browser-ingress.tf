@@ -1,6 +1,6 @@
-# Provision first, switch the Render gateway upstream, then require the gateway.
+# Provision first, deploy the Render gateway path rewrite, then require the gateway.
 variable "browser_ingress_enabled" {
-  description = "Provision the Access-protected browser WebSocket Worker."
+  description = "Provision the Access-protected browser WebSocket route."
   type        = bool
   default     = false
 }
@@ -50,11 +50,6 @@ variable "gateway_access_client_id" {
   }
 }
 
-locals {
-  browser_ingress_name = "open-inspect-browser-ingress-${local.name_suffix}"
-  browser_ingress_host = "${local.browser_ingress_name}.${var.cloudflare_worker_subdomain}.workers.dev"
-}
-
 resource "cloudflare_zero_trust_access_policy" "browser_gateway" {
   count      = var.browser_ingress_enabled ? 1 : 0
   account_id = var.cloudflare_account_id
@@ -69,34 +64,7 @@ resource "cloudflare_zero_trust_access_application" "browser_ingress" {
   account_id           = var.cloudflare_account_id
   name                 = "${var.deployment_name}-code-control-plane"
   type                 = "self_hosted"
-  domain               = local.browser_ingress_host
+  domain               = "${local.control_plane_host}/browser/*"
   app_launcher_visible = false
   policies             = [{ id = cloudflare_zero_trust_access_policy.browser_gateway[0].id, precedence = 1 }]
-}
-
-module "browser_ingress_worker" {
-  count                = var.browser_ingress_enabled ? 1 : 0
-  source               = "../../modules/cloudflare-worker"
-  account_id           = var.cloudflare_account_id
-  worker_name          = local.browser_ingress_name
-  worker_subdomain     = var.cloudflare_worker_subdomain
-  script_path          = "${var.project_root}/packages/control-plane/dist/browser-ingress.js"
-  preview_urls_enabled = false
-  service_bindings = {
-    CONTROL_PLANE_BROWSER = {
-      service_name = "open-inspect-control-plane-${local.name_suffix}"
-      entrypoint   = "BrowserWebSocketEntrypoint"
-    }
-  }
-  plain_text_bindings = {
-    ACCESS_ISSUER                  = { value = var.access_team_domain }
-    ACCESS_AUDIENCE                = { value = cloudflare_zero_trust_access_application.browser_ingress[0].aud }
-    ACCESS_SERVICE_TOKEN_CLIENT_ID = { value = var.gateway_access_client_id }
-  }
-  depends_on = [module.control_plane_worker, null_resource.control_plane_build]
-}
-
-output "browser_ingress_url" {
-  description = "Set Render gateway CONTROL_PLANE_ORIGIN to this after provisioning."
-  value       = var.browser_ingress_enabled ? "https://${local.browser_ingress_host}" : null
 }

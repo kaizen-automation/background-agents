@@ -1,20 +1,58 @@
 import { initSession, seedSandboxAuth } from "./helpers";
 import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import worker, { BrowserWebSocketEntrypoint } from "../../src/index";
+import worker from "../../src/index";
+import { importJWK, SignJWT } from "jose";
 import type { WorkerBindings } from "../../src/cloudflare/platform";
 
-const bindings = () => ({ ...env, REQUIRE_BROWSER_GATEWAY: "true" }) as unknown as WorkerBindings;
+const bindings = () =>
+  ({
+    ...env,
+    REQUIRE_BROWSER_GATEWAY: "true",
+    ACCESS_ISSUER: "https://test.cloudflareaccess.com",
+    ACCESS_AUDIENCE: "browser-test",
+    ACCESS_SERVICE_TOKEN_CLIENT_ID: "gateway.access",
+  }) as unknown as WorkerBindings;
 function socket(path = "/sessions/missing/ws") {
   return new Request(`https://public.example${path}`, { headers: { Upgrade: "websocket" } });
 }
 
 describe("Cloudflare browser ingress boundary", () => {
-  it("allows private browser upgrades while the public entrypoint is closed", async () => {
+  it.each(["public.example", "alternate.workers.dev", "preview.workers.dev"])(
+    "requires signed gateway identity on %s even before cutover",
+    async (host) => {
+      for (const assertion of [undefined, "forged"]) {
+        const req = new Request(`https://${host}/browser/sessions/missing/ws`, {
+          headers: {
+            Upgrade: "websocket",
+            ...(assertion ? { "Cf-Access-Jwt-Assertion": assertion } : {}),
+          },
+        });
+        const ctx = createExecutionContext();
+        expect(
+          (await worker.fetch(req, { ...bindings(), REQUIRE_BROWSER_GATEWAY: "false" }, ctx)).status
+        ).toBe(403);
+        await waitOnExecutionContext(ctx);
+      }
+    }
+  );
+  it("verifies Access and rewrites the browser path to an existing session", async () => {
     const { sessionName } = await initSession();
     const ctx = createExecutionContext();
-    const entrypoint = new BrowserWebSocketEntrypoint(ctx, bindings());
-    const response = await entrypoint.fetch(socket(`/sessions/${sessionName}/ws`));
+    const key = await importJWK(
+      JSON.parse((env as unknown as { TEST_ACCESS_PRIVATE_JWK: string }).TEST_ACCESS_PRIVATE_JWK),
+      "RS256"
+    );
+    const jwt = await new SignJWT({ common_name: "gateway.access" })
+      .setProtectedHeader({ alg: "RS256", kid: "integration" })
+      .setIssuer("https://test.cloudflareaccess.com")
+      .setAudience("browser-test")
+      .setIssuedAt()
+      .setExpirationTime("1m")
+      .sign(key);
+    const req = socket(`/browser/sessions/${sessionName}/ws?type=client`);
+    req.headers.set("Cf-Access-Jwt-Assertion", jwt);
+    const response = await worker.fetch(req, bindings(), ctx);
     expect(response.status).toBe(101);
     response.webSocket!.accept();
     response.webSocket!.close();
@@ -54,11 +92,15 @@ describe("Cloudflare browser ingress boundary", () => {
     expect((await worker.fetch(req, bindings(), ctx)).status).toBe(403);
     await waitOnExecutionContext(ctx);
   });
-  it("the private named entrypoint cannot be used for sandbox sockets or HTTP APIs", async () => {
+  it("the browser namespace rejects sandbox sockets and HTTP APIs", async () => {
     const ctx = createExecutionContext();
-    const entrypoint = new BrowserWebSocketEntrypoint(ctx, bindings());
-    expect((await entrypoint.fetch(socket("/sessions/missing/ws?type=sandbox"))).status).toBe(404);
-    expect((await entrypoint.fetch(new Request("https://internal/sessions"))).status).toBe(404);
+    expect(
+      (await worker.fetch(socket("/browser/sessions/missing/ws?type=sandbox"), bindings(), ctx))
+        .status
+    ).toBe(404);
+    expect(
+      (await worker.fetch(new Request("https://internal/browser/sessions"), bindings(), ctx)).status
+    ).toBe(404);
     await waitOnExecutionContext(ctx);
   });
 });
