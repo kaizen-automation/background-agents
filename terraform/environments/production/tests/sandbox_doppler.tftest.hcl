@@ -59,7 +59,7 @@ run "whitespace_token_rejected" {
   command = plan
   variables {
     sandbox_doppler_repositories = ["kaizen-automation/kaizen"]
-    sandbox_doppler_token = "   "
+    sandbox_doppler_token        = "   "
   }
   expect_failures = [var.sandbox_doppler_token]
 }
@@ -67,10 +67,10 @@ run "configured_repository" {
   command = plan
   variables {
     sandbox_doppler_repositories = ["kaizen-automation/kaizen"]
-    sandbox_doppler_token = "test-launch-token"
+    sandbox_doppler_token        = "test-launch-token"
   }
   assert {
-    condition = module.control_plane_worker.plain_text_bindings["SANDBOX_DOPPLER_REPOSITORIES"] == "kaizen-automation/kaizen"
+    condition     = module.control_plane_worker.plain_text_bindings["SANDBOX_DOPPLER_REPOSITORIES"] == "kaizen-automation/kaizen"
     error_message = "Authorized repositories must reach the control plane."
   }
 }
