@@ -63,6 +63,7 @@ resource "local_file" "web_app_wrangler_production" {
 
     # A custom-domain deployment has one canonical browser origin.
     workers_dev = ${local.web_custom_domain_enabled ? "false" : "true"}
+    preview_urls = false
 
     [observability]
     enabled = true

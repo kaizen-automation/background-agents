@@ -29,10 +29,11 @@ resource "null_resource" "control_plane_build" {
 module "control_plane_worker" {
   source = "../../modules/cloudflare-worker"
 
-  account_id       = var.cloudflare_account_id
-  worker_name      = "open-inspect-control-plane-${local.name_suffix}"
-  worker_subdomain = var.cloudflare_worker_subdomain
-  script_path      = local.control_plane_script_path
+  account_id           = var.cloudflare_account_id
+  worker_name          = "open-inspect-control-plane-${local.name_suffix}"
+  worker_subdomain     = var.cloudflare_worker_subdomain
+  script_path          = local.control_plane_script_path
+  preview_urls_enabled = false
 
   kv_namespaces = {
     REPOS_CACHE = {
@@ -89,6 +90,7 @@ module "control_plane_worker" {
 
   plain_text_bindings = merge(
     {
+      REQUIRE_BROWSER_GATEWAY       = { value = tostring(var.require_browser_gateway) }
       WEB_APP_URL                   = { value = local.web_app_url }
       ALLOWED_USERS                 = { value = var.allowed_users }
       ALLOWED_EMAIL_DOMAINS         = { value = var.allowed_email_domains }

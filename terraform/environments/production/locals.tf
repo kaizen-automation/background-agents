@@ -24,7 +24,7 @@ locals {
   # URLs for cross-service configuration
   control_plane_host = "open-inspect-control-plane-${local.name_suffix}.${var.cloudflare_worker_subdomain}.workers.dev"
   control_plane_url  = "https://${local.control_plane_host}"
-  ws_url             = "wss://${local.control_plane_host}"
+  ws_url             = var.browser_websocket_url != "" ? var.browser_websocket_url : "wss://${local.control_plane_host}"
 
   # Must match the deployed Worker's `name` and the custom-domain `service` binding.
   web_worker_name = "open-inspect-web-${local.name_suffix}"

@@ -4,6 +4,12 @@
  * Cloudflare Workers entry point with Durable Objects for session management.
  */
 
+import { WorkerEntrypoint } from "cloudflare:workers";
+import {
+  isBrowserWebSocketRequest,
+  isSandboxWebSocketRequest,
+} from "./cloudflare/websocket-ingress";
+
 import { handleControlPlaneHttp } from "./cloudflare/http-host";
 import { createLogger } from "./logger";
 import { consumeJobBatch } from "./cloudflare/job-queue";
@@ -35,6 +41,9 @@ export default {
     // WebSocket upgrade for session
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader?.toLowerCase() === "websocket") {
+      if (bindings.REQUIRE_BROWSER_GATEWAY === "true" && !isSandboxWebSocketRequest(request)) {
+        return new Response("Forbidden", { status: 403 });
+      }
       const metrics = createRequestMetrics();
       // eslint-disable-next-line no-restricted-syntax -- composition root: construct the request-scoped database adapter
       const db = instrumentSqlDatabase(bindings.DB, metrics);
@@ -149,4 +158,15 @@ async function handleWebSocket(
   }
 
   return response;
+}
+
+/** Private service-binding entrypoint. Never selected by a public URL/header. */
+export class BrowserWebSocketEntrypoint extends WorkerEntrypoint<WorkerBindings> {
+  async fetch(request: Request): Promise<Response> {
+    if (!isBrowserWebSocketRequest(request)) return new Response("Not found", { status: 404 });
+    const metrics = createRequestMetrics();
+    // eslint-disable-next-line no-restricted-syntax -- composition root for the private browser ingress
+    const db = instrumentSqlDatabase(this.env.DB, metrics);
+    return handleWebSocket(request, this.env, new URL(request.url), db, metrics);
+  }
 }

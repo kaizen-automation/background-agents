@@ -13,9 +13,10 @@ locals {
     }],
     # Service bindings (only when enabled - disable if target workers don't exist yet)
     var.enable_service_bindings ? [for binding_name, binding in var.service_bindings : {
-      type    = "service"
-      name    = binding_name
-      service = binding.service_name
+      type       = "service"
+      name       = binding_name
+      service    = binding.service_name
+      entrypoint = binding.entrypoint
     }] : [],
     # D1 database bindings
     [for binding_name, binding in var.d1_databases : {
@@ -66,7 +67,8 @@ resource "cloudflare_worker" "this" {
 
   # Enable workers.dev subdomain for direct access
   subdomain = {
-    enabled = true
+    enabled          = true
+    previews_enabled = var.preview_urls_enabled
   }
 
   observability = {

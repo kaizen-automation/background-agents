@@ -41,6 +41,7 @@ variable "service_bindings" {
   description = "Map of service bindings keyed by binding name for worker-to-worker communication"
   type = map(object({
     service_name = string
+    entrypoint   = optional(string)
   }))
   default = {}
 }
@@ -158,4 +159,10 @@ variable "route_pattern" {
   description = "Route pattern for zone-based routing (e.g., 'example.com/*')"
   type        = string
   default     = null
+}
+
+variable "preview_urls_enabled" {
+  description = "Whether version/preview URLs are reachable; disable for ingress Workers."
+  type        = bool
+  default     = true
 }

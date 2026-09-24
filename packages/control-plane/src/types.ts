@@ -14,6 +14,8 @@ import type { ObjectStorage } from "./storage/object-storage";
  * so any host can supply them.
  */
 export interface EnvConfig {
+  /** Cloudflare public ingress accepts only sandbox WebSockets when enabled. */
+  REQUIRE_BROWSER_GATEWAY?: string;
   // Secrets
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
