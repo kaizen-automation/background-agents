@@ -157,9 +157,10 @@ live under their own catalog group ("Azure OpenAI" in Settings → Models: `azur
 
 - `harness_allowlist = ["opencode"]` — OpenCode is the only agent; the web UI hides the Agent picker
   and the control plane rejects `harness: claude` on every path.
-- `model_allowlist` — the Bedrock-verified Claude models (Sonnet 4.6, Opus 4.7, Sonnet 5) plus
-  `azure/gpt-6-astra`, `azure/gpt-5.6-sol`, `azure/gpt-5.6-terra`, `azure/gpt-6-sol` and
-  `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` = `kaizen-openai`).
+- `model_allowlist` — the Bedrock-verified Claude Sonnet 5 plus `azure/gpt-6-astra`,
+  `azure/gpt-6-sol` and `azure/gpt-6-luna` (same-named deployments on `azure_openai_resource_name` =
+  `kaizen-openai`). Older Claude models (Sonnet 4.6, Opus 4.7) and the GPT 5.6 series are
+  deliberately left out of the picker; their deployments still exist and can be re-added here.
 
 Terraform joins the lists into the control-plane bindings `MODEL_ALLOWLIST` / `HARNESS_ALLOWLIST`
 (`packages/control-plane/src/deployment-catalog.ts`). `GET /model-preferences` returns them as
