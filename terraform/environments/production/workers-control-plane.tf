@@ -89,11 +89,7 @@ module "control_plane_worker" {
   enable_service_bindings = var.enable_service_bindings
 
   plain_text_bindings = merge(
-    var.browser_ingress_enabled ? {
-      ACCESS_ISSUER                  = { value = var.access_team_domain }
-      ACCESS_AUDIENCE                = { value = cloudflare_zero_trust_access_application.browser_ingress[0].aud }
-      ACCESS_SERVICE_TOKEN_CLIENT_ID = { value = var.gateway_access_client_id }
-    } : {},
+    local.browser_access_bindings,
     {
       REQUIRE_BROWSER_GATEWAY       = { value = tostring(var.require_browser_gateway) }
       WEB_APP_URL                   = { value = local.web_app_url }
