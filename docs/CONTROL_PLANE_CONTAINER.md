@@ -10,16 +10,21 @@ providers behave the same; only the platform adapters differ.
 
 ## What the stack contains
 
-| Service      | Image                   | Role                                                                                  |
-| ------------ | ----------------------- | ------------------------------------------------------------------------------------- |
-| `app`        | built from this repo    | The control plane: HTTP API, session WebSockets, cron jobs. Port 8787.                |
-| `minio`      | `quay.io/minio/minio`   | S3-compatible object storage for media and backups. Console on port 9001.             |
-| `minio-init` | `quay.io/minio/mc`      | Creates the `media` and `backups` buckets, then exits.                                |
-| `litestream` | `litestream/litestream` | Replicates the global store (`/data/global.db`) to the `backups` bucket every second. |
-| `caddy`      | `caddy` (profile `tls`) | Optional TLS termination for a public hostname.                                       |
+| Service      | Image                    | Role                                                                                  |
+| ------------ | ------------------------ | ------------------------------------------------------------------------------------- |
+| `app`        | built from this repo     | The control plane: HTTP API, session WebSockets, cron jobs. Port 8787.                |
+| `minio`      | Local MinIO build        | S3-compatible object storage for media and backups. Console on port 9001.             |
+| `minio-init` | Local MinIO client build | Creates the `media` and `backups` buckets, then exits.                                |
+| `litestream` | `litestream/litestream`  | Replicates the global store (`/data/global.db`) to the `backups` bucket every second. |
+| `caddy`      | `caddy` (profile `tls`)  | Optional TLS termination for a public hostname.                                       |
 
 The web app is not part of the stack. It stays on Vercel in production and runs with `next dev`
 locally, pointed at the container (see below).
+
+The local MinIO server and client are built from checksum-verified upstream source in
+`contrib/minio/Dockerfile`, pinned to the same releases previously used by Compose. The first build
+downloads Go dependencies and takes longer; subsequent builds reuse Docker layers and Go caches. AWS
+uses S3 and does not build or run these services.
 
 ## Quick start
 
