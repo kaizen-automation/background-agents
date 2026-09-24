@@ -1,6 +1,7 @@
 import { initSession, seedSandboxAuth } from "./helpers";
+import { cleanD1Tables } from "./cleanup";
 import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import worker from "../../src/index";
 import { importJWK, SignJWT } from "jose";
 import type { WorkerBindings } from "../../src/cloudflare/platform";
@@ -18,6 +19,8 @@ function socket(path = "/sessions/missing/ws") {
 }
 
 describe("Cloudflare browser ingress boundary", () => {
+  beforeEach(cleanD1Tables);
+
   it.each(["public.example", "alternate.workers.dev", "preview.workers.dev"])(
     "requires signed gateway identity on %s even before cutover",
     async (host) => {
