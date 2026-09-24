@@ -34,66 +34,71 @@ retain their existing signed service, per-sandbox or build-callback authenticati
 remains public and returns only service health. This is not a network-level shutdown of the public
 Worker.
 
-## Staged CLI rollout
+## Staged rollout with manually managed Access
 
-This PR does not activate the feature in `deploy/production.tfvars.json`. Provision and verify the
-protected route before closing the old browser path. Use the existing Doppler-backed wrapper from
-the repository root; do not put secrets in tfvars.
+Access applications and policies are managed in the Cloudflare dashboard, outside Terraform. The
+deployment token does not need any Access administration or discovery permissions. Terraform only
+supplies non-secret JWT verification settings to the existing control-plane Worker.
 
-1. Find the Access team URL, existing gateway service-token UUID and bare client ID. These three
-   values are non-secret. Confirm the token is in the Cloudflare account managed by this Terraform
-   deployment; do not create a second token just because an account-scoped listing doesn't show a
-   zone-scoped resource. The API credential needs Access applications/policies write and
-   service-token read permissions in addition to its existing deployment permissions.
+1. Create a **Self-hosted** Access application named `kaizen-code-control-plane` with hostname
+   `open-inspect-control-plane-kaizen.kaizen-agents.workers.dev` and path `/browser/*`. Attach only
+   the existing gateway **Service Auth** policy. Do not attach the web application's temporary
+   allow-all policy, and do not protect the whole control-plane hostname: sandbox sockets and
+   callbacks must retain their existing authentication. Disable the App Launcher tile. If this
+   application already exists, use it rather than creating a duplicate.
 
-2. Add these non-secret inputs to `deploy/production.tfvars.json` (replace examples):
+2. Record these non-secret inputs in `deploy/production.tfvars.json`:
 
    ```json
    {
      "browser_ingress_enabled": true,
      "require_browser_gateway": false,
      "access_team_domain": "https://YOUR-TEAM.cloudflareaccess.com",
-     "gateway_access_service_token_id": "EXISTING-TOKEN-UUID",
+     "browser_access_audience": "EXISTING-APPLICATION-AUD",
      "gateway_access_client_id": "EXISTING-CLIENT-ID.access"
    }
    ```
 
-   Leave `browser_websocket_url` unset for this provisioning phase. Run:
+   `browser_access_audience` is the application's 64-character AUD. The client ID is the existing
+   `CF_ACCESS_CLIENT_ID` in `kaizen-code-tailnet-gateway/prd`; never copy its secret into tfvars.
+   Terraform maps these to `ACCESS_ISSUER`, `ACCESS_AUDIENCE`, and `ACCESS_SERVICE_TOKEN_CLIENT_ID`.
+   No Access token UUID or API lookup is needed. Production now specifies these inputs while leaving
+   `browser_websocket_url` unset and enforcement off.
+
+3. Prepare and inspect the deployment plan:
 
    ```bash
    bash deploy/doppler/deploy.sh plan
-   bash deploy/doppler/deploy.sh apply
    ```
 
-   Terraform creates a **hostname/path-based** Service Auth application on the existing
-   control-plane hostname's `/browser/*` path, not Worker-level Access (which does not support
-   WebSockets). The existing Worker receives the application's audience directly from Terraform,
-   plus the issuer and client ID. It never receives the service-token secret. Existing UI Access
-   configuration is not replaced or imported by this change. If an overlapping control-plane Access
-   application already exists, inspect its scope and import/reconcile it before applying; do not
-   gate the sandbox/callback routes behind gateway credentials.
+   Merging a configuration PR triggers the existing production Terraform apply automatically.
+   Coordinate that merge with active users: even with enforcement disabled, redeploying Workers can
+   interrupt sockets. For an explicitly coordinated manual deployment, use
+   `bash deploy/doppler/deploy.sh apply`.
 
-3. Deploy the companion Caddy change in `kaizen/contrib/kaizen-code-tailnet-gateway`: it rewrites
-   `/_control-plane/sessions/:id/ws` to `/browser/sessions/:id/ws`, preserving query strings and
-   injecting the existing Access service token. Keep `CONTROL_PLANE_ORIGIN` unchanged:
-   `https://open-inspect-control-plane-kaizen.kaizen-agents.workers.dev`. No Doppler variables need
-   to be added or changed. Deploy the control plane and Access application before Caddy. Automatic
-   Render deploys are disabled, so deploy the merged gateway revision explicitly.
+4. The companion Caddy rewrite (kaizen PR #12530) is already deployed on Render. Keep
+   `CONTROL_PLANE_ORIGIN` unchanged. Test the private `/browser/*` route via the gateway, verify
+   direct unsigned/forged requests fail, and verify sandbox callbacks/connections still work. A
+   successful socket upgrade alone does not prove user authentication: test a valid authenticated
+   subscription and a denied subscription using a separate test session.
 
-4. Set `browser_websocket_url` to `wss://inspect-gateway.tail8b645a.ts.net/_control-plane`,
-   rebuild/deploy through the wrapper, and verify an authenticated browser session. This value is
-   compiled into the web bundle. The GitHub callback change remains a separate prerequisite for
-   complete private login; do not declare browser verification complete while that flow still
-   returns to the public origin.
-
-5. Set `require_browser_gateway=true`, plan and apply. Verify direct browser upgrades receive 403
-   even with forged Access headers; authenticated private browser subscriptions still work; a fresh
-   sandbox connects and reports events; missing/wrong/rotated sandbox tokens fail. A successful
-   upgrade alone does not prove browser user authentication succeeded.
+5. When ready to move users, finish the private OAuth callback setup, set `browser_websocket_url` to
+   `wss://inspect-gateway.tail8b645a.ts.net/_control-plane`, and rebuild/deploy the web bundle.
+   Verify login, session actions, and authenticated WebSocket updates before removing the web
+   application's temporary allowance and enabling `require_browser_gateway=true`. Until enforcement
+   is enabled, the original direct browser socket route remains available.
 
 Preview URLs are disabled for the control plane and web Worker. The control-plane workers.dev URL
 stays enabled for sandbox/runtime requests. The web Worker's workers.dev URL stays disabled when its
 custom domain is configured.
+
+### Existing Terraform-managed Access deployments
+
+Kaizen never enabled the previous Access resources, so its state has no such resources to remove.
+For any other deployment that did enable them, remove those resources from Terraform ownership
+without deleting the live application/policy before applying this version, and supply the retained
+application's AUD. Inspect the plan: it must not destroy Access protections. Do not run a blanket
+apply that deletes an application still used by the gateway.
 
 ## Local validation
 

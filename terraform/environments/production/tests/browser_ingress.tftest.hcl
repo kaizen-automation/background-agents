@@ -47,40 +47,40 @@ variables {
 run "disabled_by_default" {
   command = plan
   assert {
-    condition     = length(cloudflare_zero_trust_access_application.browser_ingress) == 0 && !var.require_browser_gateway
+    condition     = length(local.browser_access_bindings) == 0 && !var.require_browser_gateway
     error_message = "Existing deployments must not be cut over implicitly."
   }
 }
-run "provision_before_cutover" {
+run "configure_existing_app_before_cutover" {
   command = plan
   variables {
-    browser_ingress_enabled         = true
-    access_team_domain              = "https://test.cloudflareaccess.com"
-    gateway_access_service_token_id = "00000000-0000-0000-0000-000000000001"
-    gateway_access_client_id        = "test.access"
+    browser_ingress_enabled  = true
+    access_team_domain       = "https://test.cloudflareaccess.com"
+    browser_access_audience  = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    gateway_access_client_id = "test.access"
   }
   assert {
-    condition     = length(cloudflare_zero_trust_access_application.browser_ingress) == 1 && !var.require_browser_gateway
-    error_message = "Provisioning must not close the old browser path."
+    condition     = length(local.browser_access_bindings) == 3 && !var.require_browser_gateway
+    error_message = "Configuring verification must not close the old browser path."
   }
   assert {
-    condition     = cloudflare_zero_trust_access_policy.browser_gateway[0].decision == "non_identity"
-    error_message = "Only service-token auth belongs on the browser ingress."
+    condition     = local.browser_access_bindings.ACCESS_AUDIENCE.value == var.browser_access_audience
+    error_message = "The existing application AUD must reach the Worker."
   }
   assert {
-    condition     = cloudflare_zero_trust_access_application.browser_ingress[0].domain == "${local.control_plane_host}/browser/*"
-    error_message = "Access must protect the browser path on the existing control plane."
+    condition     = local.browser_access_bindings.ACCESS_ISSUER.value == var.access_team_domain && local.browser_access_bindings.ACCESS_SERVICE_TOKEN_CLIENT_ID.value == var.gateway_access_client_id
+    error_message = "The existing issuer and gateway identity must reach the Worker."
   }
 }
 run "private_transport_without_changing_oauth" {
   command = plan
   variables {
-    browser_ingress_enabled         = true
-    require_browser_gateway         = true
-    access_team_domain              = "https://test.cloudflareaccess.com"
-    gateway_access_service_token_id = "00000000-0000-0000-0000-000000000001"
-    gateway_access_client_id        = "test.access"
-    browser_websocket_url           = "wss://inspect-gateway.example.ts.net/_control-plane"
+    browser_ingress_enabled  = true
+    require_browser_gateway  = true
+    access_team_domain       = "https://test.cloudflareaccess.com"
+    browser_access_audience  = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    gateway_access_client_id = "test.access"
+    browser_websocket_url    = "wss://inspect-gateway.example.ts.net/_control-plane"
   }
   assert {
     condition     = local.ws_url == var.browser_websocket_url && local.web_app_url != "https://inspect-gateway.example.ts.net"
@@ -95,5 +95,16 @@ run "reject_premature_cutover" {
 run "reject_incomplete_access_configuration" {
   command = plan
   variables { browser_ingress_enabled = true }
-  expect_failures = [var.access_team_domain, var.gateway_access_service_token_id, var.gateway_access_client_id]
+  expect_failures = [var.access_team_domain, var.browser_access_audience, var.gateway_access_client_id]
+}
+
+run "reject_malformed_audience" {
+  command = plan
+  variables {
+    browser_ingress_enabled  = true
+    access_team_domain       = "https://test.cloudflareaccess.com"
+    browser_access_audience  = "not-an-application-audience"
+    gateway_access_client_id = "test.access"
+  }
+  expect_failures = [var.browser_access_audience]
 }

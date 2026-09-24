@@ -1,6 +1,6 @@
-# Provision first, deploy the Render gateway path rewrite, then require the gateway.
+# Configure an externally managed Access application before enabling the browser route.
 variable "browser_ingress_enabled" {
-  description = "Provision the Access-protected browser WebSocket route."
+  description = "Configure JWT verification for the browser route using an existing Access application."
   type        = bool
   default     = false
 }
@@ -31,13 +31,13 @@ variable "access_team_domain" {
     error_message = "Browser ingress requires the Cloudflare Access team domain."
   }
 }
-variable "gateway_access_service_token_id" {
-  description = "UUID of the existing gateway Access service token; not its secret or client ID."
+variable "browser_access_audience" {
+  description = "AUD of the externally managed Access application protecting the control plane /browser/* path."
   type        = string
   default     = ""
   validation {
-    condition     = !var.browser_ingress_enabled || can(regex("^[0-9a-fA-F-]{36}$", var.gateway_access_service_token_id))
-    error_message = "Browser ingress requires an existing Access service-token UUID."
+    condition     = !var.browser_ingress_enabled || can(regex("^[0-9a-fA-F]{64}$", var.browser_access_audience))
+    error_message = "Browser ingress requires the existing Access application AUD (64 hexadecimal characters)."
   }
 }
 variable "gateway_access_client_id" {
@@ -50,21 +50,11 @@ variable "gateway_access_client_id" {
   }
 }
 
-resource "cloudflare_zero_trust_access_policy" "browser_gateway" {
-  count      = var.browser_ingress_enabled ? 1 : 0
-  account_id = var.cloudflare_account_id
-  name       = "${var.app_name} tailnet gateway WebSockets"
-  decision   = "non_identity"
-  include    = [{ service_token = { token_id = var.gateway_access_service_token_id } }]
-}
-
-# Hostname-based Access: Worker-level Access does not support WebSocket upgrades.
-resource "cloudflare_zero_trust_access_application" "browser_ingress" {
-  count                = var.browser_ingress_enabled ? 1 : 0
-  account_id           = var.cloudflare_account_id
-  name                 = "${var.deployment_name}-code-control-plane"
-  type                 = "self_hosted"
-  domain               = "${local.control_plane_host}/browser/*"
-  app_launcher_visible = false
-  policies             = [{ id = cloudflare_zero_trust_access_policy.browser_gateway[0].id, precedence = 1 }]
+# Access policy administration stays outside the deployment token's authority.
+locals {
+  browser_access_bindings = var.browser_ingress_enabled ? {
+    ACCESS_ISSUER                  = { value = var.access_team_domain }
+    ACCESS_AUDIENCE                = { value = var.browser_access_audience }
+    ACCESS_SERVICE_TOKEN_CLIENT_ID = { value = var.gateway_access_client_id }
+  } : {}
 }
