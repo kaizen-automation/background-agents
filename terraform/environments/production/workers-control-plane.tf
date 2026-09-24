@@ -91,22 +91,24 @@ module "control_plane_worker" {
   plain_text_bindings = merge(
     local.browser_access_bindings,
     {
-      REQUIRE_BROWSER_GATEWAY       = { value = tostring(var.require_browser_gateway) }
-      WEB_APP_URL                   = { value = var.browser_web_origin != "" ? var.browser_web_origin : local.web_app_url }
-      ALLOWED_USERS                 = { value = var.allowed_users }
-      ALLOWED_EMAIL_DOMAINS         = { value = var.allowed_email_domains }
-      ALLOWED_EMAILS                = { value = var.allowed_emails }
-      ALLOWED_GITHUB_ORGS           = { value = var.allowed_github_orgs }
-      UNSAFE_ALLOW_ALL_USERS        = { value = tostring(var.unsafe_allow_all_users) }
-      WORKER_URL                    = { value = local.control_plane_url }
-      DEPLOYMENT_NAME               = { value = var.deployment_name }
-      APP_NAME                      = { value = var.app_name }
-      MODEL_ALLOWLIST               = { value = join(",", var.model_allowlist) }
-      HARNESS_ALLOWLIST             = { value = join(",", var.harness_allowlist) }
-      GITHUB_BOT_USERNAME           = { value = var.github_bot_username }
-      SANDBOX_PROVIDER              = { value = var.sandbox_provider }
-      SANDBOX_INACTIVITY_TIMEOUT_MS = { value = tostring(var.sandbox_inactivity_timeout_ms) }
-      SANDBOX_BOOT_TIMEOUT_MS       = { value = tostring(var.sandbox_boot_timeout_ms) }
+      SANDBOX_DOPPLER_REPOSITORIES    = { value = join(",", var.sandbox_doppler_repositories) }
+      SANDBOX_DOPPLER_ENVIRONMENT_IDS = { value = join(",", var.sandbox_doppler_environment_ids) }
+      REQUIRE_BROWSER_GATEWAY         = { value = tostring(var.require_browser_gateway) }
+      WEB_APP_URL                     = { value = var.browser_web_origin != "" ? var.browser_web_origin : local.web_app_url }
+      ALLOWED_USERS                   = { value = var.allowed_users }
+      ALLOWED_EMAIL_DOMAINS           = { value = var.allowed_email_domains }
+      ALLOWED_EMAILS                  = { value = var.allowed_emails }
+      ALLOWED_GITHUB_ORGS             = { value = var.allowed_github_orgs }
+      UNSAFE_ALLOW_ALL_USERS          = { value = tostring(var.unsafe_allow_all_users) }
+      WORKER_URL                      = { value = local.control_plane_url }
+      DEPLOYMENT_NAME                 = { value = var.deployment_name }
+      APP_NAME                        = { value = var.app_name }
+      MODEL_ALLOWLIST                 = { value = join(",", var.model_allowlist) }
+      HARNESS_ALLOWLIST               = { value = join(",", var.harness_allowlist) }
+      GITHUB_BOT_USERNAME             = { value = var.github_bot_username }
+      SANDBOX_PROVIDER                = { value = var.sandbox_provider }
+      SANDBOX_INACTIVITY_TIMEOUT_MS   = { value = tostring(var.sandbox_inactivity_timeout_ms) }
+      SANDBOX_BOOT_TIMEOUT_MS         = { value = tostring(var.sandbox_boot_timeout_ms) }
     },
     local.github_oauth_enabled ? {
       GITHUB_CLIENT_ID = { value = trimspace(var.github_client_id) }
@@ -192,6 +194,9 @@ module "control_plane_worker" {
       GITHUB_APP_PRIVATE_KEY     = { value = var.github_app_private_key }
       GITHUB_APP_INSTALLATION_ID = { value = var.github_app_installation_id }
     },
+    var.sandbox_doppler_token != "" ? {
+      SANDBOX_DOPPLER_TOKEN = { value = var.sandbox_doppler_token }
+    } : {},
     local.github_oauth_enabled ? {
       GITHUB_CLIENT_SECRET = { value = trimspace(var.github_client_secret) }
     } : {},
