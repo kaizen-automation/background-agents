@@ -374,6 +374,14 @@ describe("UserEnvResolver", () => {
       });
     });
 
+    it("delivers a repository-scoped DOPPLER_TOKEN to the runtime sandbox environment", async () => {
+      const h = await foldHarness({}, { DOPPLER_TOKEN: "synthetic-sandbox-token" });
+
+      await expect(h.resolver.getUserEnvVars()).resolves.toMatchObject({
+        DOPPLER_TOKEN: "synthetic-sandbox-token",
+      });
+    });
+
     it("returns undefined (not {}) when every source is empty", async () => {
       const h = makeHarness({ encryptionKey: ENCRYPTION_KEY });
       h.db.providerAuthRows = providerAuthRows(API_KEY_MODES);

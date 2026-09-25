@@ -324,6 +324,26 @@ or any other deployment credential, and do not add it as a global secret. Adding
 to the deployment Doppler project does not automatically forward it to sandboxes; only the
 specifically wired provider keys reach them.
 
+This rollout is **repository-launched sessions only**. Environment-launched sessions inherit
+global + environment secrets, never a member repository's secrets, so an environment that includes
+`kaizen-automation/kaizen` gets no `DOPPLER_TOKEN` (or provider key) from the repository scope. If
+such an environment is ever used, provision an environment-scoped token and any preflight provider
+keys on that environment explicitly; do not work around it with a global token.
+
+**Image builds.** The token is runtime-only: `loadScopeBuildSecrets`
+(`packages/control-plane/src/image-builds/scope.ts`) withholds `DOPPLER_TOKEN`, legacy
+`DOPPLER_TOKEN_*`, and `SANDBOX_DOPPLER_TOKEN` from every build-time secret source
+(global/repository/environment), while unrelated secrets still reach builds and the session-time
+fold is unchanged. Consequently `.openinspect/setup.sh` cannot rely on the runtime Doppler token; if
+a build genuinely needs credentials, provision separately scoped build credentials, and never let a
+setup script write credentials or downloaded secret files to disk. Setup hooks run with a copy of
+the process environment (`sandbox_runtime/repository_hooks.py`) and Modal `snapshot_filesystem`
+captures the whole disk afterwards, so anything persisted there survives token rotation. Audit
+limits: read-only D1 showed `image_builds` and `environments` both empty at review time and the
+Kaizen `main` branch has no `.openinspect/` directory, so there are no registered reusable images or
+environment launch configs to migrate. This does not prove Modal holds no orphaned images or runtime
+snapshots; do not assert existing images are clean without inspecting them.
+
 Rollout prerequisites, in order:
 
 1. Remove or replace any legacy global `DOPPLER_TOKEN` (the old, invalid one) so that only the

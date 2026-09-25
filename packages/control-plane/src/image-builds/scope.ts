@@ -267,7 +267,27 @@ export async function resolveScopeSandboxSettings(
 }
 
 /**
- * Build-time secrets: the same fold the scope's sessions get. Environment
+ * Doppler credentials are runtime-only: a setup hook that runs `doppler run`
+ * with them would persist fetched configuration into the filesystem snapshot,
+ * so they are withheld from every build-time secret source. The runtime
+ * session fold (UserEnvResolver) is unaffected.
+ */
+const BUILD_EXCLUDED_SECRET_NAMES = new Set(["DOPPLER_TOKEN", "SANDBOX_DOPPLER_TOKEN"]);
+const BUILD_EXCLUDED_SECRET_PREFIX = "DOPPLER_TOKEN_";
+
+export function isBuildExcludedSecretName(name: string): boolean {
+  return BUILD_EXCLUDED_SECRET_NAMES.has(name) || name.startsWith(BUILD_EXCLUDED_SECRET_PREFIX);
+}
+
+function withoutBuildExcludedSecrets(secrets: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(secrets).filter(([name]) => !isBuildExcludedSecretName(name))
+  );
+}
+
+/**
+ * Build-time secrets: the same fold the scope's sessions get, minus
+ * runtime-only Doppler credentials (isBuildExcludedSecretName). Environment
  * scopes fold global + environment — repo-scoped secrets never inherit —
  * and repo scopes fold global + that repository's secrets (build/session
  * parity in both cases). Source labels match the session fold
@@ -288,6 +308,20 @@ export async function loadScopeBuildSecrets(
     target,
     env.REPO_SECRETS_ENCRYPTION_KEY
   );
+
+  let excludedCount = 0;
+  for (const source of sources) {
+    const filtered = withoutBuildExcludedSecrets(source.secrets);
+    excludedCount += Object.keys(source.secrets).length - Object.keys(filtered).length;
+    source.secrets = filtered;
+  }
+  if (excludedCount > 0) {
+    logger.info("image_build.runtime_only_secrets_excluded", {
+      excluded_count: excludedCount,
+      scope_kind: scope.kind,
+      scope_id: scope.id,
+    });
+  }
 
   const merge = mergeSecretSources(sources);
   auditSecretsMerge({
