@@ -27,9 +27,15 @@ services:
   # Not started on AWS: S3 is the object store and the Litestream replica
   # target. A profile no environment enables is how a service is left out of
   # a merged stack; there is no way to delete one in an overlay.
+  # Clear local build contexts: the instance receives only Compose files.
+  # Placeholder image names keep these disabled services valid in Compose.
   minio:
+    build: !reset null
+    image: unused-minio:local
     profiles: ["local-object-store"]
   minio-init:
+    build: !reset null
+    image: unused-minio-client:local
     profiles: ["local-object-store"]
 
   litestream:
