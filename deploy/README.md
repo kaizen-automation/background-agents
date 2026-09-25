@@ -320,22 +320,26 @@ sandbox through the existing encrypted secrets path (`docs/SECRETS.md`).
 Provision it as an Inspect **repository secret** for `kaizen-automation/kaizen` (Settings → Secrets,
 repository scope) named `DOPPLER_TOKEN`, using a read-only Doppler service token scoped to the
 sandbox config (`kaizen-code-sandbox/prd`). Do not reuse the deployment token for `kaizen-code/prd`
-or any other deployment credential, and do not add it as a global secret. Storing a token in the
-deployment Doppler project alone does nothing for sessions: Terraform never forwards deployment
-secrets to sandboxes.
+or any other deployment credential, and do not add it as a global secret. Adding an arbitrary secret
+to the deployment Doppler project does not automatically forward it to sandboxes; only the
+specifically wired provider keys reach them.
 
 Rollout prerequisites, in order:
 
-1. Add `DOPPLER_TOKEN` (sandbox-scoped) to the repository secrets. The wrapper only runs
+1. Remove or replace any legacy global `DOPPLER_TOKEN` (the old, invalid one) so that only the
+   repository-scoped token exists; a global entry would expose the token to unrelated repositories.
+2. Add `DOPPLER_TOKEN` (sandbox-scoped) to the repository secrets. The wrapper only runs
    `doppler run` when `KZ_USE_DOPPLER` is `1` or unset in the sandbox environment, so never store
-   `KZ_USE_DOPPLER=0` as an Inspect secret. The `KZ_USE_DOPPLER=0` entry in
-   `kaizen-code-sandbox/prd` is only visible after the fetch and no longer reaches the launch
-   environment; remove it for clarity.
-2. Add any model provider API key the queued-prompt preflight checks to the same secret store.
+   `KZ_USE_DOPPLER=0` as an Inspect secret.
+3. Leave `KZ_USE_DOPPLER=0` in `kaizen-code-sandbox/prd` until this rollback is deployed: the
+   current launch-time injection still delivers that value and strips the token, so changing it
+   early breaks the existing path. After the deploy, set it to `1` or remove it, then verify a fresh
+   sandbox.
+4. Add any model provider API key the queued-prompt preflight checks to the same secret store.
    `getProviderAuthenticationError` (`packages/control-plane/src/sandbox/managed-provider-env.ts`)
    only sees the assembled global/repository/environment secrets, so an `OPENAI_API_KEY` or
    `XAI_API_KEY` that exists solely in the sandbox Doppler config fails every `openai/*` or `xai/*`
    api-key session before a sandbox is spawned. Anthropic keys are unaffected (they arrive via the
    Modal secret).
-3. Deploy the control plane, then verify a new Kaizen session can run `scripts/run-with-doppler.sh`
+5. Deploy the control plane, then verify a new Kaizen session can run `scripts/run-with-doppler.sh`
    and that unrelated repositories receive no `DOPPLER_TOKEN`.
