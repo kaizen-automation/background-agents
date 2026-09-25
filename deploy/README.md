@@ -309,3 +309,33 @@ $0 base plan · Doppler free/Developer tier · Bedrock $0 base (on-demand) → *
 Variable: Bedrock Claude tokens (dominant; same list price as the Anthropic API, billed to AWS) ·
 Modal sandbox CPU/memory-seconds (≈ $0.05–0.15 per sandbox-hour at 2 vCPU / 4 GiB, plus image
 builds) · Cloudflare request / DO duration above the included quota.
+
+### Sandbox access to Doppler (Kaizen monorepo)
+
+Sandboxes fetch their own runtime configuration: the Kaizen `scripts/run-with-doppler.sh` wrapper
+runs `doppler run` when `DOPPLER_TOKEN` is present, so a session needs that token in its
+environment. The control plane does not fetch or strip Doppler values itself; the token reaches the
+sandbox through the existing encrypted secrets path (`docs/SECRETS.md`).
+
+Provision it as an Inspect **repository secret** for `kaizen-automation/kaizen` (Settings → Secrets,
+repository scope) named `DOPPLER_TOKEN`, using a read-only Doppler service token scoped to the
+sandbox config (`kaizen-code-sandbox/prd`). Do not reuse the deployment token for `kaizen-code/prd`
+or any other deployment credential, and do not add it as a global secret. Storing a token in the
+deployment Doppler project alone does nothing for sessions: Terraform never forwards deployment
+secrets to sandboxes.
+
+Rollout prerequisites, in order:
+
+1. Add `DOPPLER_TOKEN` (sandbox-scoped) to the repository secrets. The wrapper only runs
+   `doppler run` when `KZ_USE_DOPPLER` is `1` or unset in the sandbox environment, so never store
+   `KZ_USE_DOPPLER=0` as an Inspect secret. The `KZ_USE_DOPPLER=0` entry in
+   `kaizen-code-sandbox/prd` is only visible after the fetch and no longer reaches the launch
+   environment; remove it for clarity.
+2. Add any model provider API key the queued-prompt preflight checks to the same secret store.
+   `getProviderAuthenticationError` (`packages/control-plane/src/sandbox/managed-provider-env.ts`)
+   only sees the assembled global/repository/environment secrets, so an `OPENAI_API_KEY` or
+   `XAI_API_KEY` that exists solely in the sandbox Doppler config fails every `openai/*` or `xai/*`
+   api-key session before a sandbox is spawned. Anthropic keys are unaffected (they arrive via the
+   Modal secret).
+3. Deploy the control plane, then verify a new Kaizen session can run `scripts/run-with-doppler.sh`
+   and that unrelated repositories receive no `DOPPLER_TOKEN`.

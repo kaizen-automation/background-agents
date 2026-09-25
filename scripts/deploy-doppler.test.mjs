@@ -44,7 +44,6 @@ Object.assign(fixture, {
   AWS_BEARER_TOKEN_BEDROCK: "synthetic-bedrock",
   AWS_REGION: "us-west-2",
   AZURE_OPENAI_API_KEY: "synthetic-azure",
-  SANDBOX_DOPPLER_TOKEN: "synthetic-sandbox",
   ANTHROPIC_API_KEY: "",
 });
 
@@ -123,12 +122,7 @@ test("maps synthetic secrets into Terraform, backend, and CLI environments", (t)
   for (const name of required.filter((n) => !n.startsWith("R2_"))) {
     assert.equal(call.env[`TF_VAR_${name.toLowerCase()}`], fixture[name], name);
   }
-  for (const name of [
-    "AWS_BEARER_TOKEN_BEDROCK",
-    "AWS_REGION",
-    "AZURE_OPENAI_API_KEY",
-    "SANDBOX_DOPPLER_TOKEN",
-  ]) {
+  for (const name of ["AWS_BEARER_TOKEN_BEDROCK", "AWS_REGION", "AZURE_OPENAI_API_KEY"]) {
     assert.equal(call.env[`TF_VAR_${name.toLowerCase()}`], fixture[name]);
   }
   assert.equal(call.env.TF_VAR_anthropic_api_key, undefined);
@@ -152,7 +146,6 @@ test("maps synthetic secrets into Terraform, backend, and CLI environments", (t)
     "R2_SECRET_ACCESS_KEY",
     "GITHUB_APP_PRIVATE_KEY",
     "AWS_BEARER_TOKEN_BEDROCK",
-    "SANDBOX_DOPPLER_TOKEN",
   ]) {
     assert.equal(call.env[name], undefined);
   }
