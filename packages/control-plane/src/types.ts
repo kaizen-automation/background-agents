@@ -20,9 +20,6 @@ export interface EnvConfig {
   ACCESS_AUDIENCE?: string;
   ACCESS_SERVICE_TOKEN_CLIENT_ID?: string;
   // Secrets
-  SANDBOX_DOPPLER_TOKEN?: string; // Control-plane only; never passed to sandboxes
-  SANDBOX_DOPPLER_REPOSITORIES?: string; // Exact comma-separated owner/repo targets
-  SANDBOX_DOPPLER_ENVIRONMENT_IDS?: string; // Explicit environment launch targets
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
