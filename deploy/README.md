@@ -310,47 +310,56 @@ Variable: Bedrock Claude tokens (dominant; same list price as the Anthropic API,
 Modal sandbox CPU/memory-seconds (≈ $0.05–0.15 per sandbox-hour at 2 vCPU / 4 GiB, plus image
 builds) · Cloudflare request / DO duration above the included quota.
 
-### Inject sandbox secrets from Doppler at launch
+### Sandbox access to Doppler (Kaizen monorepo)
 
-The control plane can fetch resolved secrets from a dedicated Doppler config and pass their values
-through the existing sandbox environment injection path. The sandbox never needs a Doppler token.
-This is a runtime-only source: values are not written to D1 or supplied to image builds. Each
-resolution fetches current values; a failed fetch fails the launch rather than falling back to stale
-credentials. Existing running sandboxes retain their launch environment.
+Sandboxes fetch their own runtime configuration: the Kaizen `scripts/run-with-doppler.sh` wrapper
+runs `doppler run` when `DOPPLER_TOKEN` is present, so a session needs that token in its
+environment. The control plane does not fetch or strip Doppler values itself; the token reaches the
+sandbox through the existing encrypted secrets path (`docs/SECRETS.md`).
 
-For Kaizen, create a read-only service token scoped to `kaizen-code-sandbox/prd` and store it as
-`SANDBOX_DOPPLER_TOKEN` in the **deployment** project `kaizen-code/prd`. The deployment wrapper maps
-it to Terraform's `sandbox_doppler_token` secret, bound only to the control-plane Worker. Do not put
-this token in global, repo, environment, or image-build secrets.
+Provision it as an Inspect **repository secret** for `kaizen-automation/kaizen` (Settings → Secrets,
+repository scope) named `DOPPLER_TOKEN`, using a read-only Doppler service token scoped to the
+sandbox config (`kaizen-code-sandbox/prd`). Do not reuse the deployment token for `kaizen-code/prd`
+or any other deployment credential, and do not add it as a global secret. Adding an arbitrary secret
+to the deployment Doppler project does not automatically forward it to sandboxes; only the
+specifically wired provider keys reach them.
 
-Set `sandbox_doppler_repositories = ["kaizen-automation/kaizen"]` in the deployment tfvars.
-Environment-launched sessions require a separate explicit `sandbox_doppler_environment_ids`
-allowlist; membership of an allowed repository does not implicitly authorize an environment. Empty
-allowlists disable fetching. Terraform rejects enabled targets without a nonblank token; runtime
-launches also fail closed if the token is missing.
+This rollout is **repository-launched sessions only**. Environment-launched sessions inherit
+global + environment secrets, never a member repository's secrets, so an environment that includes
+`kaizen-automation/kaizen` gets no `DOPPLER_TOKEN` (or provider key) from the repository scope. If
+such an environment is ever used, provision an environment-scoped token and any preflight provider
+keys on that environment explicitly; do not work around it with a global token.
 
-The dedicated Doppler config defines the complete runtime secret set: there is no per-secret
-allowlist. Every resolved entry is injected except Doppler credentials and metadata. Only place
-credentials intended for these coding sessions in that config.
+**Image builds.** The token is runtime-only: `loadScopeBuildSecrets`
+(`packages/control-plane/src/image-builds/scope.ts`) withholds `DOPPLER_TOKEN`, legacy
+`DOPPLER_TOKEN_*`, and `SANDBOX_DOPPLER_TOKEN` from every build-time secret source
+(global/repository/environment), while unrelated secrets still reach builds and the session-time
+fold is unchanged. Consequently `.openinspect/setup.sh` cannot rely on the runtime Doppler token; if
+a build genuinely needs credentials, provision separately scoped build credentials, and never let a
+setup script write credentials or downloaded secret files to disk. Setup hooks run with a copy of
+the process environment (`sandbox_runtime/repository_hooks.py`) and Modal `snapshot_filesystem`
+captures the whole disk afterwards, so anything persisted there survives token rotation. Audit
+limits: read-only D1 showed `image_builds` and `environments` both empty at review time and the
+Kaizen `main` branch has no `.openinspect/` directory, so there are no registered reusable images or
+environment launch configs to migrate. This does not prove Modal holds no orphaned images or runtime
+snapshots; do not assert existing images are clean without inspecting them.
 
-Doppler values override stored global/repo/environment secrets for authorized targets. Legacy
-`DOPPLER_*` and `SANDBOX_DOPPLER_*` keys are removed from their merged runtime environment,
-including Doppler metadata. The existing aggregate secret-size limit still applies. The fetch uses a
-fixed HTTPS endpoint, rejects redirects, bounds response size, and has a ten-second timeout; errors
-never include response bodies or credential values.
+Rollout prerequisites, in order:
 
-Before cutover, remove old Doppler tokens from Inspect's secret stores and rebuild any images that
-previously persisted those tokens. Setup/start hooks must consume the already-injected environment
-instead of running `doppler run` or downloading configuration. For the Kaizen monorepo, set
-`KZ_USE_DOPPLER=0` in `kaizen-code-sandbox/prd`: its `scripts/run-with-doppler.sh` wrapper then
-executes commands directly with the injected environment, even if an image still has local Doppler
-configuration. This does not override a custom hook that explicitly calls `doppler run`; inspect the
-live repository/environment hooks and remove those calls before cutover. Image builds should receive
-only separately scoped build credentials (such as registry access), not this runtime config
-containing database credentials. Keep production replica access under its separate key; it does not
-replace the local development `DB_*` settings.
-
-Deploy the control-plane change before enabling the allowlist and token. Verify an authorized new
-session receives expected keys, has no Doppler token, and can start the development app without
-Doppler. Verify unrelated repositories and unapproved environments receive no runtime Doppler
-secrets. Local tests use synthetic credentials; live launch verification is still required.
+1. Remove or replace any legacy global `DOPPLER_TOKEN` (the old, invalid one) so that only the
+   repository-scoped token exists; a global entry would expose the token to unrelated repositories.
+2. Add `DOPPLER_TOKEN` (sandbox-scoped) to the repository secrets. The wrapper only runs
+   `doppler run` when `KZ_USE_DOPPLER` is `1` or unset in the sandbox environment, so never store
+   `KZ_USE_DOPPLER=0` as an Inspect secret.
+3. Leave `KZ_USE_DOPPLER=0` in `kaizen-code-sandbox/prd` until this rollback is deployed: the
+   current launch-time injection still delivers that value and strips the token, so changing it
+   early breaks the existing path. After the deploy, set it to `1` or remove it, then verify a fresh
+   sandbox.
+4. Add any model provider API key the queued-prompt preflight checks to the same secret store.
+   `getProviderAuthenticationError` (`packages/control-plane/src/sandbox/managed-provider-env.ts`)
+   only sees the assembled global/repository/environment secrets, so an `OPENAI_API_KEY` or
+   `XAI_API_KEY` that exists solely in the sandbox Doppler config fails every `openai/*` or `xai/*`
+   api-key session before a sandbox is spawned. Anthropic keys are unaffected (they arrive via the
+   Modal secret).
+5. Deploy the control plane, then verify a new Kaizen session can run `scripts/run-with-doppler.sh`
+   and that unrelated repositories receive no `DOPPLER_TOKEN`.

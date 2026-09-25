@@ -1,4 +1,3 @@
-import type { SandboxDopplerConfig } from "./doppler-secrets";
 /**
  * Unit tests for UserEnvResolver.
  *
@@ -8,7 +7,7 @@ import type { SandboxDopplerConfig } from "./doppler-secrets";
  * return surface rather than the fakes.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { UserEnvResolver } from "./user-env-resolver";
 import { resolveSessionRepoId } from "./repo-id-resolution";
 import {
@@ -247,7 +246,6 @@ function makeHarness(
     encryptionKey?: string;
     /** Omit to model an unset SECRETS_CAP_ENFORCEMENT (fail-closed enforce). */
     capEnforcement?: string;
-    doppler?: SandboxDopplerConfig;
     resolveRepoId?: (session: SessionRow) => Promise<number>;
   } = {}
 ) {
@@ -278,7 +276,6 @@ function makeHarness(
     durableObjectId: "do-id-fallback",
     repoSecretsEncryptionKey: options.encryptionKey ?? ENCRYPTION_KEY,
     secretsCapEnforcement: options.capEnforcement,
-    doppler: options.doppler,
     log,
   });
 
@@ -296,36 +293,6 @@ function makeHarness(
 // ---------------------------------------------------------------------------
 
 describe("UserEnvResolver", () => {
-  afterEach(() => vi.unstubAllGlobals());
-  it("injects Doppler values and strips legacy tokens from other sources", async () => {
-    const h = makeHarness({ doppler: { token: "control-token", repositories: "acme/web" } });
-    h.db.providerAuthRows = providerAuthRows(API_KEY_MODES);
-
-    h.db.globalSecretRows = await secretRows({
-      DOPPLER_TOKEN: "legacy-token",
-      APP_SECRET: "stale-value",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ APP_SECRET: "resolved-value" }))
-    );
-    const vars = await h.resolver.getUserEnvVars();
-    expect(vars).toMatchObject({ APP_SECRET: "resolved-value" });
-    expect(vars).not.toHaveProperty("DOPPLER_TOKEN");
-    expect(JSON.stringify(h.logs)).not.toContain("resolved-value");
-    expect(JSON.stringify(h.logs)).not.toContain("control-token");
-  });
-  it("does not fall back to stored secrets when Doppler fails", async () => {
-    const h = makeHarness({ doppler: { token: "control-token", repositories: "acme/web" } });
-    h.db.providerAuthRows = providerAuthRows(API_KEY_MODES);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("private details", { status: 500 }))
-    );
-    await expect(h.resolver.getUserEnvVars()).rejects.toThrow(
-      "Unable to load sandbox secrets from Doppler"
-    );
-  });
   describe("missing session row", () => {
     it("returns undefined from getUserEnvVars after a warn, without touching D1", async () => {
       const h = makeHarness({ session: null });
@@ -404,6 +371,14 @@ describe("UserEnvResolver", () => {
         ONLY_WEB: "w",
         ONLY_BACKEND: "b",
         XAI_OAUTH_MANAGED: "1",
+      });
+    });
+
+    it("delivers a repository-scoped DOPPLER_TOKEN to the runtime sandbox environment", async () => {
+      const h = await foldHarness({}, { DOPPLER_TOKEN: "synthetic-sandbox-token" });
+
+      await expect(h.resolver.getUserEnvVars()).resolves.toMatchObject({
+        DOPPLER_TOKEN: "synthetic-sandbox-token",
       });
     });
 

@@ -394,6 +394,58 @@ describe("loadScopeBuildSecrets", () => {
     expect(merged).toEqual({ SHARED: "repo", GLOBAL_ONLY: "g", REPO_ONLY: "r" });
   });
 
+  it("withholds Doppler credentials from repo-scope builds while keeping unrelated secrets", async () => {
+    secretsStores.global.mockResolvedValue({
+      GLOBAL_ONLY: "g",
+      DOPPLER_TOKEN: "synthetic-global",
+      DOPPLER_TOKEN_LEGACY: "synthetic-legacy",
+    });
+    secretsStores.repo.mockResolvedValue({
+      REPO_ONLY: "r",
+      DOPPLER_TOKEN: "synthetic-repo",
+      SANDBOX_DOPPLER_TOKEN: "synthetic-sandbox",
+      DOPPLER_PROJECT: "kaizen-code-sandbox",
+    });
+
+    const merged = await loadScopeBuildSecrets(
+      encryptedEnv(fakeDb({})),
+      fakeDb({}),
+      REPO_SCOPE,
+      repoTarget()
+    );
+
+    expect(merged).toEqual({
+      GLOBAL_ONLY: "g",
+      REPO_ONLY: "r",
+      DOPPLER_PROJECT: "kaizen-code-sandbox",
+    });
+  });
+
+  it("withholds Doppler credentials from environment-scope builds", async () => {
+    secretsStores.global.mockResolvedValue({ GLOBAL_ONLY: "g", DOPPLER_TOKEN: "synthetic-global" });
+    secretsStores.environment.mockResolvedValue({
+      ENV_ONLY: "e",
+      DOPPLER_TOKEN: "synthetic-env",
+      DOPPLER_TOKEN_STAGING: "synthetic-staging",
+    });
+
+    const merged = await loadScopeBuildSecrets(encryptedEnv(fakeDb({})), fakeDb({}), ENV_SCOPE, {
+      kind: "environment",
+      repositories: [{ repoOwner: "acme", repoName: "web", baseBranch: "main" }],
+      repositoriesFingerprint: "fp-env",
+    });
+
+    expect(merged).toEqual({ GLOBAL_ONLY: "g", ENV_ONLY: "e" });
+  });
+
+  it("returns undefined when only Doppler credentials are stored", async () => {
+    secretsStores.global.mockResolvedValue({ DOPPLER_TOKEN: "synthetic-global" });
+
+    expect(
+      await loadScopeBuildSecrets(encryptedEnv(fakeDb({})), fakeDb({}), REPO_SCOPE, repoTarget())
+    ).toBe(undefined);
+  });
+
   it("still folds global secrets when repo secret decryption fails", async () => {
     secretsStores.global.mockResolvedValue({ GLOBAL_ONLY: "g" });
     secretsStores.repo.mockRejectedValue(new Error("decrypt failed"));

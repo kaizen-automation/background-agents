@@ -56,23 +56,6 @@ export default defineConfig({
           compatibilityFlags: ["nodejs_compat"],
           async outboundService(request: Request) {
             const url = new URL(request.url);
-            if (
-              url.href === "https://api.doppler.com/v3/configs/config/secrets/download?format=json"
-            ) {
-              if (request.headers.get("Authorization") === "Bearer integration-doppler-redirect") {
-                return new Response(null, {
-                  status: 302,
-                  headers: { Location: "https://redirect.invalid/secrets" },
-                });
-              }
-              if (request.headers.get("Authorization") !== "Bearer integration-doppler") {
-                return new Response(null, { status: 401 });
-              }
-              return Response.json({
-                APP_KEY: "synthetic-value",
-                DOPPLER_TOKEN: "synthetic-token",
-              });
-            }
             if (url.href === "https://test.cloudflareaccess.com/cdn-cgi/access/certs") {
               return Response.json({
                 keys: [{ ...accessPublicKey, kid: "integration", alg: "RS256" }],

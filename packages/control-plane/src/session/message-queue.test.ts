@@ -1254,7 +1254,7 @@ describe("SessionMessageQueue", () => {
       .mockReturnValueOnce(createMessage({ id: "failed-fetch" }))
       .mockReturnValueOnce(createMessage({ id: "next-prompt" }));
     h.getProviderAuthenticationError
-      .mockRejectedValueOnce(new Error("Unable to load sandbox secrets from Doppler"))
+      .mockRejectedValueOnce(new Error("Unable to load sandbox secrets"))
       .mockResolvedValueOnce(null);
     h.wsManager.getSandboxSocket.mockReturnValue(sandboxWs);
 
