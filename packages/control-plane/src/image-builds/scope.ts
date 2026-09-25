@@ -267,10 +267,10 @@ export async function resolveScopeSandboxSettings(
 }
 
 /**
- * Doppler credentials are runtime-only: a setup hook that runs `doppler run`
- * with them would persist fetched configuration into the filesystem snapshot,
- * so they are withheld from every build-time secret source. The runtime
- * session fold (UserEnvResolver) is unaffected.
+ * Doppler credentials are runtime-only: setup hooks could write credentials
+ * or fetched configuration to disk, where snapshots preserve it, so they are
+ * withheld from every build-time secret source. The runtime session fold
+ * (UserEnvResolver) is unaffected.
  */
 const BUILD_EXCLUDED_SECRET_NAMES = new Set(["DOPPLER_TOKEN", "SANDBOX_DOPPLER_TOKEN"]);
 const BUILD_EXCLUDED_SECRET_PREFIX = "DOPPLER_TOKEN_";
